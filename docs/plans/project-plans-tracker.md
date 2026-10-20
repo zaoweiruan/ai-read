@@ -44,11 +44,11 @@
 ### P0 基建与校验地基
 
 - [x] 计划文档 `plans/2026-10-20-Plan-Optimization-Prompt-RAG-v1.0.md` + INDEX 登记
-- [ ] ConfigDialog 验证服务（no-cors 探针 + 最小 chat 探测 + 草稿门禁保存）
-- [ ] `src/lib/safeJson.ts` 抽出 + `src/services/ai/chatJson.ts`（schema 校验 + 重试 1 次）
-- [ ] `src/prompts/` 版本化模板（system + 6 任务模板）
-- [ ] `provider.ts` 增加 `chatStream`（openai SSE / google alt=sse，失败回退）
-- [ ] P0 验收：typecheck / build + 验证服务 4 类端点行为
+- [x] ConfigDialog 验证服务（no-cors 探针 + 最小 chat 探测 + 草稿门禁保存）
+- [x] `src/lib/safeJson.ts` 抽出 + `src/services/ai/chatJson.ts`（schema 校验 + 重试 1 次）
+- [x] `src/prompts/` 版本化模板（system + 6 任务模板）
+- [x] `provider.ts` 增加 `chatStream`（openai SSE / google alt=sse，失败回退）
+- [x] P0 验收：typecheck / build + 验证服务 4 类端点行为（2026-10-20 浏览器 E2E 七用例全过）
 
 ### P1 结构化输出（F1/F2/F3）
 

@@ -213,3 +213,4 @@ pnpm install          按 pnpm-lock.yaml 安装依赖
 2. **无代理原则**：AI 请求全部由浏览器直连用户配置的 Provider 端点，不得引入任何服务端中转。
 3. **同一套前端**：不得引入仅 Node 可用的 API，保证 Web 与桌面双端可用。
 4. **依赖安装以 pnpm 为准**：新增依赖必须写入 `package.json` 并用 `pnpm install`，不得用 npm/yarn。
+5. **提交红线**：禁止将 `.epub` / `.pdf` / 缓存产物（`node_modules` `dist` `*.tsbuildinfo` `log/` `*.cache`）/ 含 token、key、密码等密钥的文件提交入库；`.env*`、`*.pem`、`*.key`、`credentials*` 等一律进 `.gitignore`；提交前用 grep 扫描密钥特征（`sk-`、`Bearer`、`apiKey=...`）。
