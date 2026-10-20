@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePromptStore } from '@/stores/prompt-store';
 import type { CustomPrompt } from '@/stores/prompt-store';
+import { BUILTIN_PROMPTS } from '@/prompts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +76,30 @@ export default function PromptManager() {
         <Button size="sm" onClick={startCreate}>
           新建
         </Button>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">内置提示词（只读 · 版本化模板）</h3>
+        <ul className="space-y-2">
+          {BUILTIN_PROMPTS.map((p) => (
+            <li key={p.id} className="rounded-lg border border-border p-3">
+              <div className="flex items-center gap-2">
+                <span className="truncate font-medium">{p.label}</span>
+                <Badge>v{p.version}</Badge>
+                <span className="truncate text-xs text-muted-foreground">{p.id}</span>
+              </div>
+              <p className="truncate text-sm text-muted-foreground">{p.description}</p>
+              <details className="mt-1">
+                <summary className="cursor-pointer text-xs text-muted-foreground">
+                  查看系统提示词
+                </summary>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted/50 p-2 text-xs">
+                  {p.system}
+                </pre>
+              </details>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <p className="text-sm text-muted-foreground">
