@@ -1,0 +1,36 @@
+# 依赖与构建缓存
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+*.local
+*.cache
+.eslintcache
+.pnpm-store/
+
+# 运行日志与截图
+log/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 电子书与文档原件（测试数据保留在本地，不入库）
+*.epub
+*.pdf
+
+# 密钥与凭证（严禁提交）
+.env
+.env.*
+*.pem
+*.p12
+*.key
+credentials*
+secrets*
+token*
+*secret*
+apiKey*
+access_key*
+
+# 系统文件
+.DS_Store
+Thumbs.db

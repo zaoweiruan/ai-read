@@ -1,0 +1,27 @@
+# docs/INDEX.md — 静态文档唯一主索引
+
+> 所有静态文档 / 历史 / 变更记录的唯一分类入口。新文档创建后必须在此登记路径。
+> 进度状态不在本文记录，一律写入 `docs/plans/project-plans-tracker.md`。
+
+## 需求与规格（spec）
+
+- [ai-read 需求](spec/ai-read%20需求.md) — 唯一需求源，功能与技术栈的最终依据。
+
+## 计划与进度（plans）
+
+- [项目计划与进度跟踪](plans/project-plans-tracker.md) — 唯一允许记录进度勾选的文件。
+- [2026-10-20 计划 优化需求提示词体系 P0–P4 v1.0](plans/2026-10-20-Plan-Optimization-Prompt-RAG-v1.0.md) — 源自 `spec/ai-read 优化需求.md`：5 大功能（全书概览/章节摘要/思维导图/引用问答/术语解释）+ RAG·分块·两层摘要·JSON 校验·SSE 流式·缓存·Prompt 版本化的无后端化实施方案。
+
+## 缺陷修复（bugfix）
+
+- [2026-10-19 诊断 AI 请求 Failed to fetch v1.0](bugfix/2026-10-19-Bugfix-AI-Provider-CORS-v1.0.md) — Kilo 网关端点不支持浏览器 CORS 导致 fetch 网络层拦截；附端点探测矩阵与解决方案。
+
+## 设计 / 分析 / 参考（按需登记）
+
+- [2026-10-19 设计 布局-工作台 v1.0](plans/2026-10-19-Design-Layout-Workbench-v1.0.md) — 章节选择 / 书籍内容 / 处理模式三区域水平工作台布局与联动设计。
+- [2026-10-19 设计 阅读体验优化 v1.0](plans/2026-10-19-Design-Reader-Experience-v1.0.md) — 仿 3min.top：大纲列折叠、友好排版（字号/行距/字距/字体/主题/段落）、大纲与总结开关。
+- [2026-10-19 调研 3min.top Prompt 反推重建 v1.0](plans/2026-10-19-Research-3min-Prompt-Reconstruction-v1.0.md) — 由公开总结页输出样本反推其总结/章节/大纲/导图 prompt 结构（重建稿，非原文）。
+
+## 环境快照（build-env）
+
+（暂无）

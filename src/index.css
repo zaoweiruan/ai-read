@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.55 0.2 260);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-border: oklch(0.922 0 0);
+  --radius: 0.625rem;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.reader-content {
+  font-size: var(--reader-font-size);
+  line-height: var(--reader-line-height);
+  letter-spacing: var(--reader-letter-spacing);
+  font-family: var(--reader-font-family);
+  background-color: var(--reader-background);
+  color: var(--reader-foreground);
+}
+
+.reader-content .reader-para {
+  margin: 0 0 0.9em;
+  text-indent: 2em;
+  overflow-wrap: break-word;
+}
+
+.reader-content .reader-card {
+  border: 1px solid rgb(127 127 127 / 0.35);
+  background: rgb(127 127 127 / 0.08);
+}
