@@ -79,6 +79,9 @@ export function BookContent() {
   const chapterSummary = activeChapter
     ? summary?.chapterSummaries[activeChapter.id]
     : undefined
+  const chapterCard = activeChapter
+    ? summary?.cards?.find((c) => c.chapterId === activeChapter.id)
+    : undefined
 
   useEffect(() => {
     if (!activeChapter || !bookData || !book) {
@@ -256,7 +259,32 @@ export function BookContent() {
             <p className="mb-1 text-xs font-semibold tracking-wide opacity-70">
               本章总结
             </p>
-            {chapterSummary ? (
+            {chapterCard ? (
+              <div className="space-y-1.5" style={{ fontSize: '0.92em' }}>
+                {chapterCard.coreQuestion ? (
+                  <p className="opacity-80">核心问题：{chapterCard.coreQuestion}</p>
+                ) : null}
+                {chapterCard.thesis ? <p className="font-medium">{chapterCard.thesis}</p> : null}
+                {chapterCard.keyPoints.length > 0 ? (
+                  <ul className="list-disc space-y-0.5 pl-4 opacity-90">
+                    {chapterCard.keyPoints.map((k, i) => (
+                      <li key={`${chapterCard.chapterId}-kp-${i}`}>{k.point}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {chapterCard.terms.length > 0 ? (
+                  <p className="opacity-75">
+                    术语：
+                    {chapterCard.terms.map((t, i) => (
+                      <span key={`${chapterCard.chapterId}-tm-${i}`}>
+                        {i > 0 ? '；' : ''}
+                        {t.term}
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
+              </div>
+            ) : chapterSummary ? (
               <div className="whitespace-pre-wrap" style={{ fontSize: '0.92em' }}>
                 {chapterSummary}
               </div>

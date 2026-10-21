@@ -34,10 +34,22 @@ export interface AdvancedOptions {
   subchapterDepth: number
 }
 
+export interface ChapterSummaryCard {
+  chapterId: string
+  chapterTitle: string
+  coreQuestion: string
+  thesis: string
+  keyPoints: { point: string; evidence: string; location: string }[]
+  terms: { term: string; explanation: string }[]
+  connections: string
+}
+
 export interface SummaryResult {
   chapterSummaries: Record<string, string>
   chapterRelations: string
   bookSummary: string
+  guide?: string
+  cards?: ChapterSummaryCard[]
 }
 
 export interface MindMapNode {

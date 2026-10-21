@@ -1,12 +1,24 @@
 import { useRef, useState } from 'react';
 import { resolveProvider } from '@/services/ai';
+import { chatJson } from '@/services/ai/chatJson';
+import {
+  SYSTEM_PROMPT,
+  bookGuideV1,
+  chapterSummaryV1,
+  mindMapMergeV1,
+  mindMapV1,
+} from '@/prompts';
 import { getChapterContent } from '@/services/epub';
 import { getPageText, getPdfDocument } from '@/services/pdf';
 import { useBookStore } from '@/stores/book-store';
 import { usePromptStore } from '@/stores/prompt-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { safeJson } from '@/lib/safeJson';
-import type { AdvancedOptions, MindMapNode, ProcessingMode } from '@/types';
+import type {
+  AdvancedOptions,
+  ChapterSummaryCard,
+  MindMapNode,
+  ProcessingMode,
+} from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -24,8 +36,90 @@ const DEFAULT_OPTIONS: AdvancedOptions = {
   subchapterDepth: 1,
 };
 
+interface ChapterCardJson {
+  chapter_title?: string;
+  core_question?: string;
+  thesis?: string;
+  key_points?: { point?: string; evidence?: string; location?: string }[];
+  terms?: { term?: string; explanation?: string }[];
+  connections?: string;
+}
+
+interface RawMindNode {
+  label?: string;
+  topic?: string;
+  title?: string;
+  children?: RawMindNode[];
+}
+
 function makeNode(id: string, topic: string, children?: MindMapNode[]): MindMapNode {
   return children && children.length > 0 ? { id, topic, children } : { id, topic };
+}
+
+function cardFromJson(
+  chapterId: string,
+  chapterTitle: string,
+  json: ChapterCardJson,
+): ChapterSummaryCard {
+  const title = typeof json.chapter_title === 'string' ? json.chapter_title.trim() : '';
+  return {
+    chapterId,
+    chapterTitle: title || chapterTitle,
+    coreQuestion: typeof json.core_question === 'string' ? json.core_question : '',
+    thesis: typeof json.thesis === 'string' ? json.thesis.trim() : '',
+    keyPoints: (Array.isArray(json.key_points) ? json.key_points : []).map((k) => ({
+      point: k?.point ?? '',
+      evidence: k?.evidence ?? '',
+      location: k?.location ?? '',
+    })),
+    terms: (Array.isArray(json.terms) ? json.terms : []).map((t) => ({
+      term: t?.term ?? '',
+      explanation: t?.explanation ?? '',
+    })),
+    connections: typeof json.connections === 'string' ? json.connections : '',
+  };
+}
+
+function cardToText(card: ChapterSummaryCard): string {
+  const lines: string[] = [];
+  if (card.thesis) lines.push(card.thesis);
+  if (card.coreQuestion) lines.push(`核心问题：${card.coreQuestion}`);
+  for (const k of card.keyPoints) {
+    if (!k.point) continue;
+    lines.push(k.evidence ? `- ${k.point}（${k.evidence}）` : `- ${k.point}`);
+  }
+  if (card.connections) lines.push(`关联：${card.connections}`);
+  return lines.join('\n');
+}
+
+function mindDepth(node: RawMindNode): number {
+  const children = node.children ?? [];
+  if (children.length === 0) return 1;
+  return 1 + Math.max(...children.map(mindDepth));
+}
+
+function mindMaxWidth(node: RawMindNode): number {
+  const children = node.children ?? [];
+  if (children.length === 0) return 1;
+  return Math.max(children.length, ...children.map(mindMaxWidth));
+}
+
+function validateMind(raw: RawMindNode): string | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return '导图 JSON 结构无效';
+  }
+  const depth = mindDepth(raw);
+  if (depth > 4) return `层级 ${depth} 超过上限 4`;
+  const width = mindMaxWidth(raw);
+  if (width > 7) return `单层节点 ${width} 超过上限 7`;
+  return null;
+}
+
+function mapMind(raw: RawMindNode, id: string): MindMapNode {
+  const label = (raw.label ?? raw.topic ?? raw.title ?? '').trim() || '主题';
+  const topic = label.length > 18 ? `${label.slice(0, 18)}…` : label;
+  const children = (raw.children ?? []).map((c, i) => mapMind(c, `${id}.${i}`));
+  return makeNode(id, topic, children);
 }
 
 export default function ProcessingPanel() {
@@ -104,11 +198,12 @@ export default function ProcessingPanel() {
     });
     try {
       const ai = resolveProvider({ kind: provider.kind, settings: provider });
-      const systemText =
-        mode === 'summary' && activePrompt && onlyCustom ? activePrompt.content : null;
+      const systemMessage = { role: 'system' as const, content: SYSTEM_PROMPT };
+      const customActive = mode === 'summary' && Boolean(activePrompt && onlyCustom);
 
       if (mode === 'summary') {
         const chapterSummaries: Record<string, string> = {};
+        const cards: ChapterSummaryCard[] = [];
         for (let i = 0; i < selected.length; i += 1) {
           const chapter = selected[i];
           setProgress({
@@ -117,29 +212,55 @@ export default function ProcessingPanel() {
             status: 'running',
           });
           const content = await buildContent(chapter.id);
-          const userText = activePrompt
-            ? `${activePrompt.content}\n\n章节标题：${chapter.title}\n\n正文：\n${content}`
-            : `请为以下章节生成中文摘要（200字以内），只输出摘要正文：\n\n章节标题：${chapter.title}\n\n正文：\n${content}`;
-          const reply = await ai.chat(
-            [
-              ...(systemText
-                ? [{ role: 'system' as const, content: systemText }]
-                : [
-                    {
-                      role: 'system' as const,
-                      content:
-                        '你是专业的电子书阅读助手，负责输出准确、简洁的中文总结。只输出要求的内容，不要多余说明。',
-                    },
-                  ]),
-              { role: 'user' as const, content: userText },
-            ],
-            { signal: controller.signal },
-          );
-          chapterSummaries[chapter.id] = reply.trim();
+          if (customActive && activePrompt) {
+            const reply = await ai.chat(
+              [
+                { role: 'system' as const, content: activePrompt.content },
+                {
+                  role: 'user' as const,
+                  content: `章节标题：${chapter.title}\n\n正文：\n${content}`,
+                },
+              ],
+              { signal: controller.signal },
+            );
+            chapterSummaries[chapter.id] = reply.trim();
+          } else {
+            const json = await chatJson<ChapterCardJson>(
+              ai,
+              [
+                systemMessage,
+                {
+                  role: 'user' as const,
+                  content: chapterSummaryV1.buildUser({
+                    chapterTitle: chapter.title,
+                    chapterContext: content,
+                  }),
+                },
+              ],
+              {
+                temperature: chapterSummaryV1.temperature,
+                signal: controller.signal,
+                label: '章节摘要',
+                validate: (v) => {
+                  if (!v || typeof v !== 'object') return '缺少 JSON 对象';
+                  if (typeof v.thesis !== 'string' || !v.thesis.trim()) {
+                    return '缺少 thesis 字段';
+                  }
+                  if (!Array.isArray(v.key_points) || v.key_points.length < 1) {
+                    return 'key_points 无效';
+                  }
+                  return null;
+                },
+              },
+            );
+            const card = cardFromJson(chapter.id, chapter.title, json);
+            cards.push(card);
+            chapterSummaries[chapter.id] = cardToText(card);
+          }
         }
         setProgress({
           completed: selected.length,
-          currentStep: '生成章节关系与全书总结',
+          currentStep: '生成章节关系与全书导读',
           status: 'running',
         });
         const digest = selected
@@ -158,23 +279,26 @@ export default function ProcessingPanel() {
           ],
           { signal: controller.signal },
         );
-        const bookSummary = await ai.chat(
+        const guide = await ai.chat(
           [
-            {
-              role: 'system' as const,
-              content: '你是电子书总结助手，只输出全书总结正文（400字以内，中文）。',
-            },
+            systemMessage,
             {
               role: 'user' as const,
-              content: `书名：${book?.title ?? '未知'}\n\n各章节摘要：\n${digest}`,
+              content: bookGuideV1.buildUser({
+                bookTitle: book?.title ?? '未知',
+                bookContext: digest,
+              }),
             },
           ],
-          { signal: controller.signal },
+          { temperature: bookGuideV1.temperature, signal: controller.signal },
         );
+        const guideText = guide.trim();
         setSummary({
           chapterSummaries,
           chapterRelations: relations.trim(),
-          bookSummary: bookSummary.trim(),
+          bookSummary: guideText,
+          guide: guideText,
+          cards,
         });
       } else if (mode === 'chapter-mindmap') {
         const roots: MindMapNode[] = [];
@@ -186,75 +310,101 @@ export default function ProcessingPanel() {
             status: 'running',
           });
           const content = await buildContent(chapter.id);
-          const reply = await ai.chat(
-            [
+          try {
+            const raw = await chatJson<RawMindNode>(
+              ai,
+              [
+                systemMessage,
+                {
+                  role: 'user' as const,
+                  content: mindMapV1.buildUser({
+                    title: chapter.title,
+                    bookContext: content,
+                  }),
+                },
+              ],
               {
-                role: 'system' as const,
-                content:
-                  '你是思维导图生成助手。只输出 JSON：{"topic":string,"children":[{"topic":string,"children":[...]}]}，topic 为简短中文短语，层级不超过 4，不要输出 JSON 之外的任何文字。',
+                temperature: mindMapV1.temperature,
+                signal: controller.signal,
+                label: '思维导图',
+                validate: validateMind,
               },
-              {
-                role: 'user' as const,
-                content: `章节标题：${chapter.title}\n\n正文：\n${content}`,
-              },
-            ],
-            { signal: controller.signal },
-          );
-          const parsed = safeJson<MindMapNode>(reply);
-          if (parsed && parsed.topic) {
-            roots.push(
-              makeNode(
-                chapter.id,
-                parsed.topic.trim() || chapter.title,
-                parsed.children?.length ? parsed.children : undefined,
-              ),
             );
-          } else {
+            const node = mapMind(raw, chapter.id);
+            node.topic = (raw.title ?? '').trim() || chapter.title;
+            roots.push(node);
+          } catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
             roots.push({
               id: chapter.id,
               topic: chapter.title,
-              detail: reply.trim().slice(0, 200) || undefined,
+              detail: message.slice(0, 200) || undefined,
             });
           }
         }
         setMindMap({ roots });
       } else {
-        setProgress({
-          completed: 0,
-          currentStep: '汇总全书章节',
-          status: 'running',
-        });
-        const digestParts: string[] = [];
+        const chapterMaps: string[] = [];
         for (let i = 0; i < selected.length; i += 1) {
           const chapter = selected[i];
           setProgress({
             completed: i,
-            currentStep: `汇总章节：${chapter.title}`,
+            currentStep: `逐章导图：${chapter.title}`,
             status: 'running',
           });
           const content = await buildContent(chapter.id);
-          digestParts.push(`## ${chapter.title}\n${content.slice(0, 3000)}`);
+          try {
+            const raw = await chatJson<RawMindNode>(
+              ai,
+              [
+                systemMessage,
+                {
+                  role: 'user' as const,
+                  content: mindMapV1.buildUser({
+                    title: chapter.title,
+                    bookContext: content,
+                  }),
+                },
+              ],
+              {
+                temperature: mindMapV1.temperature,
+                signal: controller.signal,
+                label: '思维导图',
+                validate: validateMind,
+              },
+            );
+            chapterMaps.push(`## ${chapter.title}\n${JSON.stringify(raw)}`);
+          } catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
+            chapterMaps.push(`## ${chapter.title}\n（该章导图生成失败：${message.slice(0, 120)}）`);
+          }
         }
-        const reply = await ai.chat(
+        setProgress({
+          completed: selected.length,
+          currentStep: '合并全书导图',
+          status: 'running',
+        });
+        const merged = await chatJson<RawMindNode>(
+          ai,
           [
-            {
-              role: 'system' as const,
-              content:
-                '你是整书思维导图生成助手。只输出 JSON：{"topic":string,"children":[{"topic":string,"children":[...]}]}，topic 为简短中文短语，层级不超过 5，不要输出 JSON 之外的任何文字。',
-            },
+            systemMessage,
             {
               role: 'user' as const,
-              content: `书名：${book?.title ?? '未知'}\n\n章节内容摘要：\n${digestParts.join('\n\n')}`,
+              content: mindMapMergeV1.buildUser({
+                chapterMaps: chapterMaps.join('\n\n'),
+              }),
             },
           ],
-          { signal: controller.signal },
+          {
+            temperature: mindMapMergeV1.temperature,
+            signal: controller.signal,
+            label: '导图合并',
+            validate: validateMind,
+          },
         );
-        const parsed = safeJson<MindMapNode>(reply);
-        const rootTopic = parsed?.topic?.trim() || book?.title || '全书';
-        const rootChildren: MindMapNode[] | undefined = parsed?.children?.length
-          ? parsed.children
-          : undefined;
-        setMindMap({ roots: [makeNode('book-root', rootTopic, rootChildren)] });
+        const root = mapMind(merged, 'book-root');
+        root.topic = (merged.title ?? '').trim() || book?.title || '全书';
+        setMindMap({ roots: [root] });
       }
       setProgress({
         completed: selected.length,
@@ -350,9 +500,7 @@ export default function ProcessingPanel() {
           <select
             className="h-8 rounded-md border border-border bg-background px-2 text-sm"
             value={options.subchapterDepth}
-            onChange={(e) =>
-              setOptions({ ...options, subchapterDepth: Number(e.target.value) })
-            }
+            onChange={(e) => setOptions({ ...options, subchapterDepth: Number(e.target.value) })}
           >
             <option value={0}>0</option>
             <option value={1}>1</option>
@@ -381,4 +529,3 @@ export default function ProcessingPanel() {
     </section>
   );
 }
-

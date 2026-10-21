@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MindMapNode, MindMapResult, SummaryResult } from '@/types';
 import { useBookStore } from '@/stores/book-store';
+import { renderGuideMarkdown } from '@/lib/markdown';
 import { Badge } from '@/components/ui/badge';
 
 type ResultPayload = {
@@ -98,15 +99,23 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
   const chapters = useBookStore((s) => s.chapters);
   const titleOf = (id: string) => chapters.find((c) => c.id === id)?.title ?? id;
   const entries = Object.entries(result.chapterSummaries);
+  const cards = result.cards ?? [];
+  const jumpTo = (id: string) => useBookStore.getState().setActiveChapterId(id);
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border p-4">
         <div className="mb-1 flex items-center gap-2">
-          <h3 className="font-semibold">全书总结</h3>
-          <Badge>book</Badge>
+          <h3 className="font-semibold">{result.guide ? '全书导读' : '全书总结'}</h3>
+          <Badge>{result.guide ? 'guide' : 'book'}</Badge>
         </div>
-        <p className="whitespace-pre-wrap text-sm">{result.bookSummary}</p>
+        {result.guide ? (
+          <div className="space-y-1.5 text-sm">
+            {renderGuideMarkdown(result.guide, chapters, jumpTo)}
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap text-sm">{result.bookSummary}</p>
+        )}
       </div>
       <div className="rounded-lg border border-border p-4">
         <div className="mb-1 flex items-center gap-2">
@@ -117,27 +126,97 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
       </div>
       <div className="rounded-lg border border-border">
         <div className="border-b border-border px-4 py-2">
-          <h3 className="font-semibold">章节摘要（{entries.length}）</h3>
+          <h3 className="font-semibold">
+            章节摘要（{cards.length > 0 ? cards.length : entries.length}）
+          </h3>
         </div>
-        <ul>
-          {entries.map(([id, text]) => (
-            <li key={id} className="border-b border-border last:border-b-0">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-muted/50"
-                onClick={() => setOpenId(openId === id ? null : id)}
-              >
+        {cards.length > 0 ? (
+          <ul>
+            {cards.map((card) => (
+              <li key={card.chapterId} className="border-b border-border last:border-b-0">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-muted/50"
+                  onClick={() => setOpenId(openId === card.chapterId ? null : card.chapterId)}
+                >
+                  <span className="truncate">{card.chapterTitle}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {openId === card.chapterId ? '收起' : '展开'}
+                  </span>
+                </button>
+                {openId === card.chapterId ? (
+                  <div className="space-y-2 px-4 pb-3 text-sm">
+                    {card.coreQuestion ? (
+                      <p>
+                        <span className="font-medium">核心问题：</span>
+                        <span className="text-muted-foreground">{card.coreQuestion}</span>
+                      </p>
+                    ) : null}
+                    {card.thesis ? (
+                      <p>
+                        <span className="font-medium">论点：</span>
+                        {card.thesis}
+                      </p>
+                    ) : null}
+                    {card.keyPoints.length > 0 ? (
+                      <ul className="list-disc space-y-1 pl-5">
+                        {card.keyPoints.map((k, i) => (
+                          <li key={`${card.chapterId}-kp-${i}`}>
+                            {k.point}
+                            {k.evidence ? (
+                              <span className="text-muted-foreground">（{k.evidence}）</span>
+                            ) : null}
+                            {k.location ? (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                @{k.location}
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {card.terms.length > 0 ? (
+                      <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
+                        {card.terms.map((t, i) => (
+                          <li key={`${card.chapterId}-tm-${i}`}>
+                            <span className="font-medium text-foreground">{t.term}</span>
+                            {t.explanation ? `：${t.explanation}` : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {card.connections ? (
+                      <p className="text-muted-foreground">
+                        <span className="font-medium text-foreground">关联：</span>
+                        {card.connections}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul>
+            {entries.map(([id, text]) => (
+              <li key={id} className="border-b border-border last:border-b-0">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-muted/50"
+                  onClick={() => setOpenId(openId === id ? null : id)}
+                >
                   <span className="truncate">{titleOf(id)}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {openId === id ? '收起' : '展开'}
-                </span>
-              </button>
-              {openId === id ? (
-                <p className="whitespace-pre-wrap px-4 pb-3 text-sm text-muted-foreground">{text}</p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {openId === id ? '收起' : '展开'}
+                  </span>
+                </button>
+                {openId === id ? (
+                  <p className="whitespace-pre-wrap px-4 pb-3 text-sm text-muted-foreground">{text}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
