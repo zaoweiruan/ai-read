@@ -472,7 +472,7 @@ export default function ProcessingPanel() {
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-border p-5">
-      <div className="flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-semibold">处理</h2>
         <div className="flex items-center gap-1.5">
           <Badge>{selected.length} 章</Badge>
@@ -480,7 +480,11 @@ export default function ProcessingPanel() {
         </div>
       </div>
 
-      <div role="tablist" aria-label="处理模式" className="flex overflow-hidden rounded-md border border-border">
+      <div
+        role="tablist"
+        aria-label="处理模式"
+        className="flex shrink-0 overflow-hidden rounded-md border border-border"
+      >
         {MODES.map((m) => (
           <button
             key={m.value}
@@ -507,7 +511,7 @@ export default function ProcessingPanel() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-3">
         <label className="flex items-center gap-2 text-sm">
           服务
           <select
@@ -557,7 +561,7 @@ export default function ProcessingPanel() {
         </label>
       </div>
 
-      <div className="mt-auto flex flex-col gap-2 border-t border-border pt-3">
+      <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-border pt-3">
         {!running ? (
           <p className="text-xs text-muted-foreground">
             已选 {selected.length} 章 · 点击上方标签页立即处理

@@ -79,6 +79,11 @@ export function ChapterList() {
       </div>
 
       <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
+        {chapters.length === 0 ? (
+          <li className="px-2 py-1 text-sm text-muted-foreground">
+            尚未加载书籍章节。
+          </li>
+        ) : null}
         {chapters.map((c) => {
           const checked = selectedChapterIds.includes(c.id)
           const isActive = activeChapterId === c.id

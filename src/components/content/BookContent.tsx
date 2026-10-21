@@ -243,7 +243,11 @@ export function BookContent() {
       >
         {state.status === 'idle' ? (
           <p className="text-sm opacity-70">
-            点击左侧章节标题即可查看该章正文。
+            {bookData
+              ? '点击左侧章节标题即可查看该章正文。'
+              : book
+                ? '书籍文件未驻留（刷新后不保留），请在顶部重新上传以继续阅读与处理。'
+                : '请在顶部上传 EPUB 或 PDF 以开始阅读。'}
           </p>
         ) : null}
         {state.status === 'loading' ? (

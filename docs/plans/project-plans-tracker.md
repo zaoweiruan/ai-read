@@ -116,3 +116,11 @@
 - [x] 修复 2：AI 请求 60 秒看门狗（`withTimeout` + TimeoutError → 中文提示，finally 恢复 running）
 - [x] 修复 3：移除完成后 `scrollIntoView('#app-result')`（右栏停靠无需页面滚动）
 - [x] 验收：正常链路（无滚动、tab 可用、errs=[]）/ 挂起链路（60s 超时文案 + tab 恢复）/ 再入链路（超时后重跑成功）
+
+## 阶段 9：模式 tab 四层加固（2026-10-21，设计 `plans/2026-10-21-Design-Tab-Persistence-Hardening-v1.0.md`）
+
+- [x] L1 常驻工作台：App 去掉 `chapters.length > 0` 条件，三栏恒渲染（无书也有 tab）
+- [x] L2 持久化：book-store 接入 zustand `persist`（`ai-read:book`），存章节/选中/分组/结果/模式，排除 `bookData`；localStorage 读写容错
+- [x] L3 防塌陷：处理面板子项全部 `shrink-0`，面板 `overflow-y-auto` 内部滚动；右栏面板高 320/360
+- [x] L4 空态引导：BookContent 区分「无书 / 有书无文件」文案；ChapterList 空列表提示
+- [x] 验收（2026-10-21 浏览器 E2E）：无书时三 tab 可见（h=44px）+ 空态文案；上传→处理→刷新后 13 章与导读恢复、tab 全部可用、结果窗仍在右栏（x=889）、正文区提示重新上传；tablist `flex-shrink:0`、高 45px；截图 tabs-persistence-hardening

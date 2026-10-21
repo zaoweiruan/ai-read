@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import type {
   BookMeta,
   Chapter,
@@ -43,47 +44,33 @@ const initialProgress: ProcessingProgress = {
   status: 'idle',
 }
 
-export const useBookStore = create<BookState>((set) => ({
-  book: null,
-  bookData: null,
-  chapters: [],
-  selectedChapterIds: [],
-  activeChapterId: null,
-  groups: [],
-  progress: initialProgress,
-  summary: null,
-  mindMap: null,
-  activeMode: 'summary',
-  setBook: (book) => set({ book }),
-  setBookData: (data) => set({ bookData: data }),
-  setChapters: (chapters) =>
-    set({
-      chapters,
-      selectedChapterIds: chapters.map((c) => c.id),
-      activeChapterId: chapters[0]?.id ?? null,
-      summary: null,
-      mindMap: null,
-    }),
-  setActiveChapterId: (id) => set({ activeChapterId: id }),
-  setSummary: (summary) => set({ summary }),
-  setMindMap: (mindMap) => set({ mindMap }),
-  setActiveMode: (activeMode) => set({ activeMode }),
-  toggleChapter: (id) =>
-    set((state) => ({
-      selectedChapterIds: state.selectedChapterIds.includes(id)
-        ? state.selectedChapterIds.filter((x) => x !== id)
-        : [...state.selectedChapterIds, id],
-    })),
-  selectAllChapters: () =>
-    set((state) => ({ selectedChapterIds: state.chapters.map((c) => c.id) })),
-  clearSelection: () => set({ selectedChapterIds: [] }),
-  addGroup: (group) => set((state) => ({ groups: [...state.groups, group] })),
-  removeGroup: (id) =>
-    set((state) => ({ groups: state.groups.filter((g) => g.id !== id) })),
-  setProgress: (progress) =>
-    set((state) => ({ progress: { ...state.progress, ...progress } })),
-  reset: () =>
-    set({
+const safeStorage = {
+  getItem: (name: string): string | null => {
+    try {
+      return window.localStorage.getItem(name)
+    } catch {
+      return null
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      window.localStorage.setItem(name, value)
+    } catch {
+      return
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      window.localStorage.removeItem(name)
+    } catch {
+      return
+    }
+  },
+}
+
+export const useBookStore = create<BookState>()(
+  persist(
+    (set) => ({
       book: null,
       bookData: null,
       chapters: [],
@@ -94,5 +81,61 @@ export const useBookStore = create<BookState>((set) => ({
       summary: null,
       mindMap: null,
       activeMode: 'summary',
+      setBook: (book) => set({ book }),
+      setBookData: (data) => set({ bookData: data }),
+      setChapters: (chapters) =>
+        set({
+          chapters,
+          selectedChapterIds: chapters.map((c) => c.id),
+          activeChapterId: chapters[0]?.id ?? null,
+          summary: null,
+          mindMap: null,
+        }),
+      setActiveChapterId: (id) => set({ activeChapterId: id }),
+      setSummary: (summary) => set({ summary }),
+      setMindMap: (mindMap) => set({ mindMap }),
+      setActiveMode: (activeMode) => set({ activeMode }),
+      toggleChapter: (id) =>
+        set((state) => ({
+          selectedChapterIds: state.selectedChapterIds.includes(id)
+            ? state.selectedChapterIds.filter((x) => x !== id)
+            : [...state.selectedChapterIds, id],
+        })),
+      selectAllChapters: () =>
+        set((state) => ({ selectedChapterIds: state.chapters.map((c) => c.id) })),
+      clearSelection: () => set({ selectedChapterIds: [] }),
+      addGroup: (group) => set((state) => ({ groups: [...state.groups, group] })),
+      removeGroup: (id) =>
+        set((state) => ({ groups: state.groups.filter((g) => g.id !== id) })),
+      setProgress: (progress) =>
+        set((state) => ({ progress: { ...state.progress, ...progress } })),
+      reset: () =>
+        set({
+          book: null,
+          bookData: null,
+          chapters: [],
+          selectedChapterIds: [],
+          activeChapterId: null,
+          groups: [],
+          progress: initialProgress,
+          summary: null,
+          mindMap: null,
+          activeMode: 'summary',
+        }),
     }),
-}))
+    {
+      name: 'ai-read:book',
+      storage: createJSONStorage(() => safeStorage),
+      partialize: (state) => ({
+        book: state.book,
+        chapters: state.chapters,
+        selectedChapterIds: state.selectedChapterIds,
+        activeChapterId: state.activeChapterId,
+        groups: state.groups,
+        summary: state.summary,
+        mindMap: state.mindMap,
+        activeMode: state.activeMode,
+      }),
+    },
+  ),
+)

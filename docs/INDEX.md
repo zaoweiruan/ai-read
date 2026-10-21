@@ -25,6 +25,7 @@
 - [2026-10-21 设计 思维导图交互 v1.0](plans/2026-10-21-Design-MindMap-Interaction-v1.0.md) — 滚轮缩放 / 手型拖拽开关 / 双击节点展开折叠 / 自研小地图（含视口框拖拽平移），基于 mind-elixir 6.0.0-next.4 源码盘点。
 - [2026-10-21 设计 处理面板模式标签化 v1.0](plans/2026-10-21-Design-ProcessingPanel-ModeTabs-v1.0.md) — 三模式改名 + 右侧水平 tab 单选、点选即处理、完成滚到结果、ResultView 结果 Tab 自愈。
 - [2026-10-21 设计 结果窗右移与三 tab 共用 v1.0](plans/2026-10-21-Design-Result-RightDock-v1.0.md) — ResultView 移入右栏与处理面板共列；activeMode 单一事实源驱动结果窗切换；summary/mindMap 产物独立保留原子替换。
+- [2026-10-21 设计 模式 tab 永不再消失（四层加固）v1.0](plans/2026-10-21-Design-Tab-Persistence-Hardening-v1.0.md) — 常驻工作台 + book-store 持久化章节与结果 + 面板子项防 flex 塌陷 + 空态引导，四层保证模式 tab 任何状态下可见可点。
 
 ## 环境快照（build-env）
 
