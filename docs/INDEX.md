@@ -15,6 +15,7 @@
 ## 缺陷修复（bugfix）
 
 - [2026-10-19 诊断 AI 请求 Failed to fetch v1.0](bugfix/2026-10-19-Bugfix-AI-Provider-CORS-v1.0.md) — Kilo 网关端点不支持浏览器 CORS 导致 fetch 网络层拦截；附端点探测矩阵与解决方案。
+- [2026-10-21 修复 处理面板 tab 消失 v1.0](bugfix/2026-10-21-Bugfix-ProcessingPanel-Tab-Disappear-v1.0.md) — 根因：Vite 监听 `docs/**` 变更触发整页 reload 清空内存态 + AI 请求无超时导致 tab 永久禁用 + 完成后自动滚动推离 tab；修复含 watcher ignore、60s 看门狗、移除自动滚动。
 
 ## 设计 / 分析 / 参考（按需登记）
 

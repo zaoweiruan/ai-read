@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { resolveProvider } from '@/services/ai';
+import type { AIProvider, ChatMessage, ChatOptions } from '@/services/ai/provider';
 import { chatJson } from '@/services/ai/chatJson';
 import {
   SYSTEM_PROMPT,
@@ -122,6 +123,43 @@ function mapMind(raw: RawMindNode, id: string): MindMapNode {
   return makeNode(id, topic, children);
 }
 
+const CHAT_TIMEOUT_MS = 60_000;
+
+function withTimeout(ai: AIProvider): AIProvider {
+  return {
+    name: ai.name,
+    async chat(messages: ChatMessage[], options: ChatOptions = {}) {
+      const ac = new AbortController();
+      const timer = setTimeout(() => {
+        ac.abort(
+          new DOMException(
+            'The operation was aborted due to timeout',
+            'TimeoutError',
+          ),
+        );
+      }, CHAT_TIMEOUT_MS);
+      const external = options.signal;
+      const onExternalAbort = () => ac.abort(external?.reason);
+      if (external?.aborted) {
+        ac.abort(external.reason);
+      } else {
+        external?.addEventListener('abort', onExternalAbort, { once: true });
+      }
+      try {
+        return await ai.chat(messages, { ...options, signal: ac.signal });
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'TimeoutError') {
+          throw new Error('AI 请求超时（60 秒）：服务响应过慢，请稍后重试。');
+        }
+        throw e;
+      } finally {
+        clearTimeout(timer);
+        external?.removeEventListener('abort', onExternalAbort);
+      }
+    },
+  };
+}
+
 export default function ProcessingPanel() {
   const book = useBookStore((s) => s.book);
   const bookData = useBookStore((s) => s.bookData);
@@ -197,7 +235,7 @@ export default function ProcessingPanel() {
       status: 'running',
     });
     try {
-      const ai = resolveProvider({ kind: provider.kind, settings: provider });
+      const ai = withTimeout(resolveProvider({ kind: provider.kind, settings: provider }));
       const systemMessage = { role: 'system' as const, content: SYSTEM_PROMPT };
       const customActive = effectiveMode === 'summary' && Boolean(activePrompt && onlyCustom);
 
@@ -411,11 +449,6 @@ export default function ProcessingPanel() {
         currentStep: '完成',
         status: 'done',
       });
-      setTimeout(() => {
-        document
-          .querySelector('#app-result')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 300);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (controller.signal.aborted) {

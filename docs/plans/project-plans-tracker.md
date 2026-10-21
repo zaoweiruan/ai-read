@@ -108,3 +108,11 @@
 - [x] run() 不再清除旧产物：summary/mindMap 独立保留、成功时原子替换
 - [x] ResultView 按 activeMode 切换 + 单产物兜底 + 空态文案（暂无总结/导图结果）
 - [x] 验收（2026-10-21 mock E2E，errors=[]）：唯一 `#app-result` 位于右栏（left=889 > 0.55vw）；点「当前章节总结」→ 导读；点「整书思维导图」→ 同窗切导图；切回总结即时且两子 tab 并存；截图 result-right-dock
+
+## 阶段 8：tab 消失缺陷修复（2026-10-21，诊断 `bugfix/2026-10-21-Bugfix-ProcessingPanel-Tab-Disappear-v1.0.md`）
+
+- [x] 定位：Vite 日志实证 `page reload docs/INDEX.md` / `tracker.md`（用户报告前 3 分钟）→ 整页 reload 清空内存态致工作台与 tab 卸载
+- [x] 修复 1：vite `server.watch.ignored` 忽略 `docs/**`、`log/**`、`.git/**`（探针验证无 reload）
+- [x] 修复 2：AI 请求 60 秒看门狗（`withTimeout` + TimeoutError → 中文提示，finally 恢复 running）
+- [x] 修复 3：移除完成后 `scrollIntoView('#app-result')`（右栏停靠无需页面滚动）
+- [x] 验收：正常链路（无滚动、tab 可用、errs=[]）/ 挂起链路（60s 超时文案 + tab 恢复）/ 再入链路（超时后重跑成功）
