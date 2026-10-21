@@ -52,12 +52,12 @@
 
 ### P1 结构化输出（F1/F2/F3）
 
-- [ ] 类型：ChapterSummaryCard + SummaryResult.guide/cards
-- [ ] summary 流程：章节 JSON 卡片 + 结构化导读（含章节定位）
-- [ ] mindmap.v1 强约束（4 层/7 节点/18 字）+ 重试
-- [ ] book-mindmap 改逐章导图 → mindmap-merge 合并
-- [ ] ResultView 导读 markdown + 跳章；BookContent 结构化卡片
-- [ ] P1 验收：一神论 13 章浏览器验证
+- [x] 类型：ChapterSummaryCard + SummaryResult.guide/cards
+- [x] summary 流程：章节 JSON 卡片 + 结构化导读（含章节定位）
+- [x] mindmap.v1 强约束（4 层/7 节点/18 字）+ 重试
+- [x] book-mindmap 改逐章导图 → mindmap-merge 合并
+- [x] ResultView 导读 markdown + 跳章；BookContent 结构化卡片
+- [x] P1 验收：一神论 13 章 mock E2E（6 分区/表格/章节链接跳章/卡片展开/章节导图 4 层节点/整书 merge-ready；截图 p1-summary-guide-cards、p1-chapter-mindmap）
 
 ### P2 分块与缓存（E1/E2/E6）
 
