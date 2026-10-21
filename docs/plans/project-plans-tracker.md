@@ -80,3 +80,14 @@
 - [ ] 划词 → glossary.v1 → 4 段式解释抽屉
 - [ ] Failed to fetch 中文诊断增强
 - [ ] 终验：typecheck / build / E2E（一神论 + 批评与真实）/ 截图 / 验收清单全勾
+
+## 阶段 5：思维导图交互（2026-10-21，设计 `plans/2026-10-21-Design-MindMap-Interaction-v1.0.md`）
+
+- [x] 设计文档 + INDEX 登记（方案 A + 小地图视口框拖拽平移）
+- [x] ResultView MindMapPanel：toolBar 关闭 + 6 图标工具条（手型/放大/缩小/适应/展开全部/折叠全部）
+- [x] 手型开关（spacePressed + space-pressed 类）+ 常驻 grab 光标 CSS
+- [x] 双击节点展开/折叠（dblclick 委托 → expandNode；根节点特例走 expandNodeAll 数据层）
+- [x] 自研小地图：世界坐标反变换 + rAF 刷新 + 点击居中 + 拖拽视口框平移
+- [x] 提示文案更新
+- [x] 关键修复：`overflowHidden:false`（原 true 跳过整个 Mt 事件绑定 → 滚轮/拖拽全失效）+ 覆写 `move` 无界平移（原库边界钳制导致适配视图下无法挪动）+ bus 销毁后 removeListener 容错
+- [x] 验收（2026-10-21 mock E2E，errors=[]）：滚轮 0.672→0.772、pan 链位移、手型类/光标、根与非根双击（expanded 翻转 + 子树 6→1）、折叠/展开全部、小地图拖拽位移、截图 mindmap-interaction-final

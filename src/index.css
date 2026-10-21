@@ -43,3 +43,16 @@ body {
   border: 1px solid rgb(127 127 127 / 0.35);
   background: rgb(127 127 127 / 0.08);
 }
+
+.mm-shell .map-container,
+.mm-shell .map-canvas {
+  cursor: grab;
+}
+
+.mm-shell .map-canvas:active {
+  cursor: grabbing;
+}
+
+.mm-shell .me-tpc:hover {
+  cursor: pointer;
+}
