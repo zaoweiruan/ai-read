@@ -22,6 +22,8 @@
 - [2026-10-19 设计 阅读体验优化 v1.0](plans/2026-10-19-Design-Reader-Experience-v1.0.md) — 仿 3min.top：大纲列折叠、友好排版（字号/行距/字距/字体/主题/段落）、大纲与总结开关。
 - [2026-10-19 调研 3min.top Prompt 反推重建 v1.0](plans/2026-10-19-Research-3min-Prompt-Reconstruction-v1.0.md) — 由公开总结页输出样本反推其总结/章节/大纲/导图 prompt 结构（重建稿，非原文）。
 - [2026-10-21 设计 思维导图交互 v1.0](plans/2026-10-21-Design-MindMap-Interaction-v1.0.md) — 滚轮缩放 / 手型拖拽开关 / 双击节点展开折叠 / 自研小地图（含视口框拖拽平移），基于 mind-elixir 6.0.0-next.4 源码盘点。
+- [2026-10-21 设计 处理面板模式标签化 v1.0](plans/2026-10-21-Design-ProcessingPanel-ModeTabs-v1.0.md) — 三模式改名 + 右侧水平 tab 单选、点选即处理、完成滚到结果、ResultView 结果 Tab 自愈。
+- [2026-10-21 设计 结果窗右移与三 tab 共用 v1.0](plans/2026-10-21-Design-Result-RightDock-v1.0.md) — ResultView 移入右栏与处理面板共列；activeMode 单一事实源驱动结果窗切换；summary/mindMap 产物独立保留原子替换。
 
 ## 环境快照（build-env）
 

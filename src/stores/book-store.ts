@@ -4,6 +4,7 @@ import type {
   Chapter,
   ChapterGroup,
   MindMapResult,
+  ProcessingMode,
   ProcessingProgress,
   SummaryResult,
 } from '@/types'
@@ -18,12 +19,14 @@ interface BookState {
   progress: ProcessingProgress
   summary: SummaryResult | null
   mindMap: MindMapResult | null
+  activeMode: ProcessingMode
   setBook: (book: BookMeta | null) => void
   setBookData: (data: ArrayBuffer | null) => void
   setChapters: (chapters: Chapter[]) => void
   setActiveChapterId: (id: string | null) => void
   setSummary: (summary: SummaryResult | null) => void
   setMindMap: (mindMap: MindMapResult | null) => void
+  setActiveMode: (mode: ProcessingMode) => void
   toggleChapter: (id: string) => void
   selectAllChapters: () => void
   clearSelection: () => void
@@ -50,6 +53,7 @@ export const useBookStore = create<BookState>((set) => ({
   progress: initialProgress,
   summary: null,
   mindMap: null,
+  activeMode: 'summary',
   setBook: (book) => set({ book }),
   setBookData: (data) => set({ bookData: data }),
   setChapters: (chapters) =>
@@ -63,6 +67,7 @@ export const useBookStore = create<BookState>((set) => ({
   setActiveChapterId: (id) => set({ activeChapterId: id }),
   setSummary: (summary) => set({ summary }),
   setMindMap: (mindMap) => set({ mindMap }),
+  setActiveMode: (activeMode) => set({ activeMode }),
   toggleChapter: (id) =>
     set((state) => ({
       selectedChapterIds: state.selectedChapterIds.includes(id)
@@ -88,5 +93,6 @@ export const useBookStore = create<BookState>((set) => ({
       progress: initialProgress,
       summary: null,
       mindMap: null,
+      activeMode: 'summary',
     }),
 }))

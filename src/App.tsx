@@ -64,16 +64,16 @@ export default function App() {
                   className={cn(
                     'grid gap-4',
                     outlineVisible
-                      ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_260px]'
-                      : 'lg:grid-cols-[40px_minmax(0,1fr)_260px]',
+                      ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_360px]'
+                      : 'lg:grid-cols-[40px_minmax(0,1fr)_360px]',
                   )}
                 >
                   {outlineVisible ? (
-                    <div className="h-[420px] lg:h-[480px]">
+                    <div className="h-[560px] lg:h-[640px]">
                       <ChapterList />
                     </div>
                   ) : (
-                    <div className="hidden h-[420px] items-center justify-center lg:flex lg:h-[480px]">
+                    <div className="hidden h-[560px] items-center justify-center lg:flex lg:h-[640px]">
                       <button
                         type="button"
                         onClick={() => setOutlineVisible(true)}
@@ -89,14 +89,18 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <div className="h-[420px] lg:h-[480px]">
+                  <div className="h-[560px] lg:h-[640px]">
                     <BookContent />
                   </div>
-                  <div className="h-[420px] lg:h-[480px]">
-                    <ProcessingPanel />
+                  <div className="flex h-[560px] flex-col gap-4 lg:h-[640px]">
+                    <div className="h-[300px] shrink-0 lg:h-[320px]">
+                      <ProcessingPanel />
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                      <ResultView />
+                    </div>
                   </div>
                 </div>
-                <ResultView />
               </>
             )}
           </div>

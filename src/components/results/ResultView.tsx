@@ -33,18 +33,25 @@ export default function ResultView({
 }) {
   const [tab, setTab] = useState<'summary' | 'mindmap'>('summary');
   const book = useBookStore((s) => s.book);
+  const activeMode = useBookStore((s) => s.activeMode);
   const storeSummary = useBookStore((s) => s.summary);
   const storeMindMap = useBookStore((s) => s.mindMap);
   const resolvedSummary = summary ?? storeSummary ?? readResult().summary ?? null;
   const resolvedMindMap = mindMap ?? storeMindMap ?? readResult().mindMap ?? null;
 
   useEffect(() => {
-    if (!resolvedSummary && resolvedMindMap) setTab('mindmap');
+    if (activeMode === 'summary' && resolvedSummary) setTab('summary');
+    else if (activeMode !== 'summary' && resolvedMindMap) setTab('mindmap');
+  }, [activeMode, resolvedSummary, resolvedMindMap]);
+
+  useEffect(() => {
+    if (resolvedMindMap && !resolvedSummary) setTab('mindmap');
+    else if (resolvedSummary && !resolvedMindMap) setTab('summary');
   }, [resolvedSummary, resolvedMindMap]);
 
   if (!resolvedSummary && !resolvedMindMap) {
     return (
-      <section className="space-y-2">
+      <section id="app-result" className="space-y-2">
         <h2 className="text-lg font-semibold">结果</h2>
         <p className="text-sm text-muted-foreground">处理完成后将在此展示总结与思维导图。</p>
       </section>
@@ -52,7 +59,7 @@ export default function ResultView({
   }
 
   return (
-    <section className="space-y-4">
+    <section id="app-result" className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">结果</h2>
         <div className="flex gap-1">
@@ -85,11 +92,19 @@ export default function ResultView({
         </div>
       </div>
 
-      {tab === 'summary' && resolvedSummary ? (
-        <SummaryPanel result={resolvedSummary} />
+      {tab === 'summary' ? (
+        resolvedSummary ? (
+          <SummaryPanel result={resolvedSummary} />
+        ) : (
+          <p className="text-sm text-muted-foreground">暂无总结结果，完成处理后在此展示。</p>
+        )
       ) : null}
-      {tab === 'mindmap' && resolvedMindMap ? (
-        <MindMapPanel result={resolvedMindMap} title={book?.title ?? '思维导图'} />
+      {tab === 'mindmap' ? (
+        resolvedMindMap ? (
+          <MindMapPanel result={resolvedMindMap} title={book?.title ?? '思维导图'} />
+        ) : (
+          <p className="text-sm text-muted-foreground">暂无导图结果，完成处理后在此展示。</p>
+        )
       ) : null}
     </section>
   );

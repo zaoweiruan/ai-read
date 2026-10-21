@@ -91,3 +91,20 @@
 - [x] 提示文案更新
 - [x] 关键修复：`overflowHidden:false`（原 true 跳过整个 Mt 事件绑定 → 滚轮/拖拽全失效）+ 覆写 `move` 无界平移（原库边界钳制导致适配视图下无法挪动）+ bus 销毁后 removeListener 容错
 - [x] 验收（2026-10-21 mock E2E，errors=[]）：滚轮 0.672→0.772、pan 链位移、手型类/光标、根与非根双击（expanded 翻转 + 子树 6→1）、折叠/展开全部、小地图拖拽位移、截图 mindmap-interaction-final
+
+## 阶段 6：处理面板模式标签化（2026-10-21，设计 `plans/2026-10-21-Design-ProcessingPanel-ModeTabs-v1.0.md`）
+
+- [x] 设计文档 + INDEX 登记
+- [x] 模式改名（当前章节总结 / 当前章节思维导图 / 整书思维导图）
+- [x] 右侧水平 tab 单选 + 点选即处理（`run(modeOverride)`）+ 移除「开始处理」按钮
+- [x] 完成后滚到 `#app-result`；ResultView 结果 Tab 自愈（仅 summary 存在时切回）
+- [x] 验收（2026-10-21 mock E2E）：三新标签/旧标签消失/无开始按钮/提示与徽标 ✓；点选直跑导读 ✓
+
+## 阶段 7：结果窗右移与三 tab 共用（2026-10-21，设计 `plans/2026-10-21-Design-Result-RightDock-v1.0.md`）
+
+- [x] 设计文档 + INDEX 登记
+- [x] App 布局：右栏 360px、三列等高 560/640、处理面板 h-300/320 + 结果窗 flex-1 overflow（下方位置移除）
+- [x] book-store `activeMode` 单一事实源（ProcessingPanel 本地 mode state 上提，reset 复位）
+- [x] run() 不再清除旧产物：summary/mindMap 独立保留、成功时原子替换
+- [x] ResultView 按 activeMode 切换 + 单产物兜底 + 空态文案（暂无总结/导图结果）
+- [x] 验收（2026-10-21 mock E2E，errors=[]）：唯一 `#app-result` 位于右栏（left=889 > 0.55vw）；点「当前章节总结」→ 导读；点「整书思维导图」→ 同窗切导图；切回总结即时且两子 tab 并存；截图 result-right-dock

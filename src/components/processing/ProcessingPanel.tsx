@@ -25,9 +25,9 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 const MODES: { value: ProcessingMode; label: string }[] = [
-  { value: 'summary', label: '文字总结模式' },
-  { value: 'chapter-mindmap', label: '章节思维导图模式' },
-  { value: 'book-mindmap', label: '整书思维导图模式' },
+  { value: 'summary', label: '当前章节总结' },
+  { value: 'chapter-mindmap', label: '当前章节思维导图' },
+  { value: 'book-mindmap', label: '整书思维导图' },
 ];
 
 const DEFAULT_OPTIONS: AdvancedOptions = {
@@ -141,10 +141,11 @@ export default function ProcessingPanel() {
   const prompts = usePromptStore((s) => s.prompts);
   const onlyCustom = usePromptStore((s) => s.onlyCustom);
 
-  const [mode, setMode] = useState<ProcessingMode>('summary');
   const [options, setOptions] = useState<AdvancedOptions>(DEFAULT_OPTIONS);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
+  const activeMode = useBookStore((s) => s.activeMode);
+  const setActiveMode = useBookStore((s) => s.setActiveMode);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -170,10 +171,9 @@ export default function ProcessingPanel() {
     return parts.join('\n');
   }
 
-  async function run() {
+  async function run(modeOverride?: ProcessingMode) {
+    const effectiveMode = modeOverride ?? activeMode;
     setError('');
-    setSummary(null);
-    setMindMap(null);
     if (!isConfigured() || !provider) {
       setError('请先在「配置」中完成 AI 服务设置。');
       return;
@@ -199,9 +199,9 @@ export default function ProcessingPanel() {
     try {
       const ai = resolveProvider({ kind: provider.kind, settings: provider });
       const systemMessage = { role: 'system' as const, content: SYSTEM_PROMPT };
-      const customActive = mode === 'summary' && Boolean(activePrompt && onlyCustom);
+      const customActive = effectiveMode === 'summary' && Boolean(activePrompt && onlyCustom);
 
-      if (mode === 'summary') {
+      if (effectiveMode === 'summary') {
         const chapterSummaries: Record<string, string> = {};
         const cards: ChapterSummaryCard[] = [];
         for (let i = 0; i < selected.length; i += 1) {
@@ -300,7 +300,7 @@ export default function ProcessingPanel() {
           guide: guideText,
           cards,
         });
-      } else if (mode === 'chapter-mindmap') {
+      } else if (effectiveMode === 'chapter-mindmap') {
         const roots: MindMapNode[] = [];
         for (let i = 0; i < selected.length; i += 1) {
           const chapter = selected[i];
@@ -411,6 +411,11 @@ export default function ProcessingPanel() {
         currentStep: '完成',
         status: 'done',
       });
+      setTimeout(() => {
+        document
+          .querySelector('#app-result')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (controller.signal.aborted) {
@@ -436,27 +441,36 @@ export default function ProcessingPanel() {
     <section className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-border p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">处理</h2>
-        <Badge>{book?.format.toUpperCase() ?? ''}</Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge>{selected.length} 章</Badge>
+          <Badge>{book?.format.toUpperCase() ?? ''}</Badge>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div role="tablist" aria-label="处理模式" className="flex overflow-hidden rounded-md border border-border">
         {MODES.map((m) => (
-          <label
+          <button
             key={m.value}
+            type="button"
+            role="tab"
+            aria-selected={activeMode === m.value}
+            disabled={running}
             className={cn(
-              'flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm',
-              mode === m.value && 'border-primary bg-primary/5',
+              'flex-1 px-2 py-1.5 text-xs transition-colors',
+              'border-l border-border first:border-l-0',
+              activeMode === m.value
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+              'disabled:cursor-not-allowed disabled:opacity-50',
             )}
+            onClick={() => {
+              if (running) return;
+              setActiveMode(m.value);
+              void run(m.value);
+            }}
           >
-            <input
-              type="radio"
-              name="mode"
-              value={m.value}
-              checked={mode === m.value}
-              onChange={() => setMode(m.value)}
-            />
             {m.label}
-          </label>
+          </button>
         ))}
       </div>
 
@@ -512,7 +526,9 @@ export default function ProcessingPanel() {
 
       <div className="mt-auto flex flex-col gap-2 border-t border-border pt-3">
         {!running ? (
-          <Button onClick={() => void run()}>开始处理（{selected.length} 章）</Button>
+          <p className="text-xs text-muted-foreground">
+            已选 {selected.length} 章 · 点击上方标签页立即处理
+          </p>
         ) : (
           <Button variant="destructive" onClick={pause}>
             暂停
