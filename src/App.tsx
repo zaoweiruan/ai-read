@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useSettingsStore } from '@/stores/settings-store'
-import { useReaderStore } from '@/stores/reader-store'
-import { cn } from '@/lib/utils'
 import { ConfigDialog } from '@/components/config/ConfigDialog'
 import { BookUploader } from '@/components/upload/BookUploader'
 import { ChapterList } from '@/components/chapters/ChapterList'
@@ -16,8 +14,6 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('read')
   const [configOpen, setConfigOpen] = useState(false)
   const configured = useSettingsStore((s) => s.isConfigured())
-  const outlineVisible = useReaderStore((s) => s.outlineVisible)
-  const setOutlineVisible = useReaderStore((s) => s.setOutlineVisible)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -55,35 +51,10 @@ export default function App() {
         ) : (
           <div className="flex flex-col gap-4">
             <BookUploader />
-            <div
-              className={cn(
-                'grid gap-4',
-                outlineVisible
-                  ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_360px]'
-                  : 'lg:grid-cols-[40px_minmax(0,1fr)_360px]',
-              )}
-            >
-              {outlineVisible ? (
-                <div className="h-[560px] lg:h-[640px]">
-                  <ChapterList />
-                </div>
-              ) : (
-                <div className="hidden h-[560px] items-center justify-center lg:flex lg:h-[640px]">
-                  <button
-                    type="button"
-                    onClick={() => setOutlineVisible(true)}
-                    title="展开章节列"
-                    className="rounded-md border border-border px-1.5 py-3 text-sm text-muted-foreground hover:bg-muted"
-                  >
-                    <span
-                      style={{ writingMode: 'vertical-rl' }}
-                      className="tracking-widest"
-                    >
-                      章节
-                    </span>
-                  </button>
-                </div>
-              )}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_360px]">
+              <div className="h-[560px] lg:h-[640px]">
+                <ChapterList />
+              </div>
               <div className="h-[560px] lg:h-[640px]">
                 <BookContent />
               </div>

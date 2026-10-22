@@ -74,7 +74,12 @@ body {
 
 .reader-shell:fullscreen {
   padding: 20px;
-  background: var(--background);
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+.reader-shell:fullscreen::backdrop {
+  background: var(--color-background);
 }
 
 .reader-shell.is-expanded {

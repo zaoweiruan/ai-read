@@ -57,21 +57,16 @@ export function BookContent() {
   const chapters = useBookStore((s) => s.chapters)
   const activeChapterId = useBookStore((s) => s.activeChapterId)
   const setActiveChapterId = useBookStore((s) => s.setActiveChapterId)
-  const summary = useBookStore((s) => s.summary)
   const fontSize = useReaderStore((s) => s.fontSize)
   const lineHeight = useReaderStore((s) => s.lineHeight)
   const letterSpacing = useReaderStore((s) => s.letterSpacing)
   const fontFamily = useReaderStore((s) => s.fontFamily)
   const theme = useReaderStore((s) => s.theme)
-  const outlineVisible = useReaderStore((s) => s.outlineVisible)
-  const summaryVisible = useReaderStore((s) => s.summaryVisible)
   const setFontSize = useReaderStore((s) => s.setFontSize)
   const setLineHeight = useReaderStore((s) => s.setLineHeight)
   const setLetterSpacing = useReaderStore((s) => s.setLetterSpacing)
   const setFontFamily = useReaderStore((s) => s.setFontFamily)
   const setTheme = useReaderStore((s) => s.setTheme)
-  const setOutlineVisible = useReaderStore((s) => s.setOutlineVisible)
-  const setSummaryVisible = useReaderStore((s) => s.setSummaryVisible)
   const resetTypography = useReaderStore((s) => s.resetTypography)
   const [state, setState] = useState<LoadState>({ status: 'idle' })
   const [pdfPage, setPdfPage] = useState(1)
@@ -85,7 +80,6 @@ export function BookContent() {
   const activeChapter = chapters.find((c) => c.id === activeChapterId) ?? null
   const activeIndex = activeChapter ? chapters.indexOf(activeChapter) : -1
   const isPdf = book?.format === 'pdf'
-
   useEffect(() => {
     const onChange = () => {
       setExpanded(document.fullscreenElement === readerRef.current)
@@ -154,12 +148,6 @@ export function BookContent() {
     const target = chapters.find((c) => c.id === activeChapterId)
     if (target?.startPage) setPdfPage(target.startPage)
   }, [activeChapterId, chapters, isPdf])
-  const chapterSummary = activeChapter
-    ? summary?.chapterSummaries[activeChapter.id]
-    : undefined
-  const chapterCard = activeChapter
-    ? summary?.cards?.find((c) => c.chapterId === activeChapter.id)
-    : undefined
 
   useEffect(() => {
     cacheRef.current.clear()
@@ -247,23 +235,6 @@ export function BookContent() {
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <Button
           size="sm"
-          variant={summaryVisible ? 'secondary' : 'ghost'}
-          onClick={() => setSummaryVisible(!summaryVisible)}
-          title="显示 / 隐藏本章总结"
-        >
-          总结
-        </Button>
-        <Button
-          size="sm"
-          variant={outlineVisible ? 'secondary' : 'ghost'}
-          onClick={() => setOutlineVisible(!outlineVisible)}
-          title="显示 / 隐藏章节列"
-        >
-          大纲
-        </Button>
-        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-        <Button
-          size="sm"
           variant="outline"
           onClick={() => setFontSize(fontSize - 1)}
           disabled={fontSize <= 15}
@@ -318,7 +289,47 @@ export function BookContent() {
           onClick={resetTypography}
           title="恢复默认排版"
         >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M13.2 8a5.2 5.2 0 1 1-1.7-3.85" />
+            <path d="M13.2 2.6V6H9.8" />
+          </svg>
           重置
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void toggleFullscreen()}
+          title={expanded ? '退出全屏' : '全屏显示阅读区'}
+          aria-label={expanded ? '退出全屏' : '全屏'}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            {expanded ? (
+              <path d="M6 2.5H2.5V6M10 2.5h3.5V6M6 13.5H2.5V10M10 13.5h3.5V10" />
+            ) : (
+              <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
+            )}
+          </svg>
+          {expanded ? '退出全屏' : '全屏'}
         </Button>
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -362,33 +373,6 @@ export function BookContent() {
         >
           下一页
         </Button>
-        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => void toggleFullscreen()}
-          title={expanded ? '退出全屏' : '全屏显示阅读区'}
-          aria-label={expanded ? '退出全屏' : '全屏'}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            {expanded ? (
-              <path d="M6 2.5H2.5V6M10 2.5h3.5V6M6 13.5H2.5V10M10 13.5h3.5V10" />
-            ) : (
-              <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
-            )}
-          </svg>
-          {expanded ? '退出全屏' : '全屏'}
-        </Button>
       </div>
       <div
         ref={scrollRef}
@@ -411,47 +395,6 @@ export function BookContent() {
           <p className="text-sm" style={{ color: '#d94f4f' }}>
             章节内容加载失败：{state.message}
           </p>
-        ) : null}
-        {state.status === 'ready' && summaryVisible && activeChapter ? (
-          <div className="reader-card mb-4 rounded-md p-3">
-            <p className="mb-1 text-xs font-semibold tracking-wide opacity-70">
-              本章总结
-            </p>
-            {chapterCard ? (
-              <div className="space-y-1.5" style={{ fontSize: '0.92em' }}>
-                {chapterCard.coreQuestion ? (
-                  <p className="opacity-80">核心问题：{chapterCard.coreQuestion}</p>
-                ) : null}
-                {chapterCard.thesis ? <p className="font-medium">{chapterCard.thesis}</p> : null}
-                {chapterCard.keyPoints.length > 0 ? (
-                  <ul className="list-disc space-y-0.5 pl-4 opacity-90">
-                    {chapterCard.keyPoints.map((k, i) => (
-                      <li key={`${chapterCard.chapterId}-kp-${i}`}>{k.point}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                {chapterCard.terms.length > 0 ? (
-                  <p className="opacity-75">
-                    术语：
-                    {chapterCard.terms.map((t, i) => (
-                      <span key={`${chapterCard.chapterId}-tm-${i}`}>
-                        {i > 0 ? '；' : ''}
-                        {t.term}
-                      </span>
-                    ))}
-                  </p>
-                ) : null}
-              </div>
-            ) : chapterSummary ? (
-              <div className="whitespace-pre-wrap" style={{ fontSize: '0.92em' }}>
-                {chapterSummary}
-              </div>
-            ) : (
-              <p className="opacity-70" style={{ fontSize: '0.92em' }}>
-                尚无总结。请在右侧运行「文字总结」模式并勾选本章后生成。
-              </p>
-            )}
-          </div>
         ) : null}
         {state.status === 'ready' ? (
           paragraphs.length > 0 ? (

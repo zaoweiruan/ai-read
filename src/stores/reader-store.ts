@@ -13,15 +13,11 @@ interface TypographyState {
 }
 
 interface ReaderState extends TypographyState {
-  outlineVisible: boolean
-  summaryVisible: boolean
   setFontSize: (size: number) => void
   setLineHeight: (v: number) => void
   setLetterSpacing: (v: number) => void
   setFontFamily: (v: ReaderFontFamily) => void
   setTheme: (v: ReaderTheme) => void
-  setOutlineVisible: (v: boolean) => void
-  setSummaryVisible: (v: boolean) => void
   resetTypography: () => void
 }
 
@@ -40,15 +36,11 @@ export const useReaderStore = create<ReaderState>()(
   persist(
     (set) => ({
       ...DEFAULT_TYPOGRAPHY,
-      outlineVisible: true,
-      summaryVisible: true,
       setFontSize: (size) => set({ fontSize: clampFontSize(size) }),
       setLineHeight: (lineHeight) => set({ lineHeight }),
       setLetterSpacing: (letterSpacing) => set({ letterSpacing }),
       setFontFamily: (fontFamily) => set({ fontFamily }),
       setTheme: (theme) => set({ theme }),
-      setOutlineVisible: (outlineVisible) => set({ outlineVisible }),
-      setSummaryVisible: (summaryVisible) => set({ summaryVisible }),
       resetTypography: () => set({ ...DEFAULT_TYPOGRAPHY }),
     }),
     { name: 'ai-read:reader' },

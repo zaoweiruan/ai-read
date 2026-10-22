@@ -166,3 +166,5 @@
 - [x] 阅读区全屏：原生 Fullscreen API 优先 + CSS 回退，Esc 退出，同一 DOM（导图/滚动不丢）
 - [x] 附带修复：PDF 正文窗口全空（pdfjs detach 原始 ArrayBuffer → 后续 slice 抛错）→ 改为始终传副本
 - [x] 验收（2026-10-22 浏览器 E2E）：EPUB 上一章禁用/下一章切章（扉页→目录）✓；页按钮 EPUB 禁用 ✓；阅读区全屏 1280×720 且退出后正文仍在 ✓；PDF 样本：第 1/2 页 ⇄ 第 2/2 页、正文与页码同步、末页下一页禁用、detached 报错消失 ✓
+- [x] 工具条精简：移除「总结」「大纲」开关及本章总结卡片、章节列折叠侧栏（章节列常驻）；全屏按钮移至「重置」右侧；重置补逆时针箭头图标
+- [x] 修正阅读区全屏背景（`--background` 未定义 → 透出 Chromium 黑色 backdrop）：改用 `--color-background`/`--color-foreground` + `::backdrop` 着色，实测全屏工具条区 `oklch(1 0 0)`；截图 reader-fullscreen-fixed-bg

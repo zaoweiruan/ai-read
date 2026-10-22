@@ -27,6 +27,13 @@
 
 修复：`parsePdf` 与 `getPdfDocument` 一律传副本 `new Uint8Array(data.slice(0))`；`getPdfDocument` 另加 `byteLength === 0` 的明确报错。
 
+### 阅读区工具条精简（2026-10-22 追加）
+
+- **移除「总结」「大纲」两个开关及其相关组件**：阅读区不再有本章总结卡片（摘要仍在右栏结果窗），章节列常驻显示 —— 相应删除 `reader-store` 的 `outlineVisible` / `summaryVisible`、章节列的「« 折叠」按钮与 App 的折叠侧栏（改为固定三栏 grid）。
+- **「全屏」按钮移至「重置」右侧**（排版工具条行内），导航行只保留章/页导航。
+- **「重置」按钮补图标**（逆时针箭头）。
+- **全屏背景色修正**：`.reader-shell:fullscreen` 原用未定义的 `--background`（项目实为 `--color-background`）→ 元素透明 → 透出 Chromium 黑色 backdrop（截图确认工具条区发黑）。改为 `var(--color-background)` / `var(--color-foreground)` 并给 `::backdrop` 着色，全屏工具条区现为主题白 `oklch(1 0 0)`。
+
 ## 3. 验收
 
 - 工具条出现导航行；上一章/下一章可切换且首尾禁用；章徽标同步。

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useBookStore } from '@/stores/book-store'
-import { useReaderStore } from '@/stores/reader-store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
@@ -18,7 +17,6 @@ export function ChapterList() {
   const clearSelection = useBookStore((s) => s.clearSelection)
   const addGroup = useBookStore((s) => s.addGroup)
   const removeGroup = useBookStore((s) => s.removeGroup)
-  const setOutlineVisible = useReaderStore((s) => s.setOutlineVisible)
 
   const [groupOpen, setGroupOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -65,15 +63,6 @@ export function ChapterList() {
             onClick={() => setGroupOpen(true)}
           >
             分组 (Ctrl+G)
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setOutlineVisible(false)}
-            title="折叠章节列"
-            aria-label="折叠章节列"
-          >
-            «
           </Button>
         </div>
       </div>
