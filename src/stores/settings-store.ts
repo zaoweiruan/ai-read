@@ -15,7 +15,7 @@ interface SettingsState {
   isConfigured: () => boolean
 }
 
-export const useSettingsStore = create<SettingsState>()(
+const baseSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
       providers: [],
@@ -55,3 +55,10 @@ export const useSettingsStore = create<SettingsState>()(
     { name: STORAGE_KEY },
   ),
 )
+
+type SettingsStore = typeof baseSettingsStore
+
+const scope = globalThis as typeof globalThis & { __aiReadSettingsStore?: SettingsStore }
+
+export const useSettingsStore: SettingsStore =
+  scope.__aiReadSettingsStore ?? (scope.__aiReadSettingsStore = baseSettingsStore)

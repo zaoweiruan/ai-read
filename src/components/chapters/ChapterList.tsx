@@ -10,7 +10,7 @@ export function ChapterList() {
   const chapters = useBookStore((s) => s.chapters)
   const selectedChapterIds = useBookStore((s) => s.selectedChapterIds)
   const activeChapterId = useBookStore((s) => s.activeChapterId)
-  const setActiveChapterId = useBookStore((s) => s.setActiveChapterId)
+  const requestChapter = useBookStore((s) => s.requestChapter)
   const groups = useBookStore((s) => s.groups)
   const toggleChapter = useBookStore((s) => s.toggleChapter)
   const selectAllChapters = useBookStore((s) => s.selectAllChapters)
@@ -97,7 +97,7 @@ export function ChapterList() {
                 type="button"
                 className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
                 title="点击查看该章内容"
-                onClick={() => setActiveChapterId(c.id)}
+                onClick={() => requestChapter(c.id)}
               >
                 {c.title}
               </button>

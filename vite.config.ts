@@ -14,5 +14,8 @@ export default defineConfig({
     watch: {
       ignored: ['**/docs/**', '**/log/**', '**/.git/**'],
     },
+    headers: {
+      'Cache-Control': 'no-store',
+    },
   },
 })

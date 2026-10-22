@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, WheelEvent as ReactWheelEvent } from 'react'
 import { getChapterBlocks } from '@/services/epub'
 import { getPageText, getPdfDocument } from '@/services/pdf'
 import { useBookStore } from '@/stores/book-store'
@@ -56,6 +56,7 @@ export function BookContent() {
   const bookData = useBookStore((s) => s.bookData)
   const chapters = useBookStore((s) => s.chapters)
   const activeChapterId = useBookStore((s) => s.activeChapterId)
+  const chapterRequest = useBookStore((s) => s.chapterRequest)
   const setActiveChapterId = useBookStore((s) => s.setActiveChapterId)
   const fontSize = useReaderStore((s) => s.fontSize)
   const lineHeight = useReaderStore((s) => s.lineHeight)
@@ -72,14 +73,39 @@ export function BookContent() {
   const [pdfPage, setPdfPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [expanded, setExpanded] = useState(false)
+  const [contScroll, setContScroll] = useState(true)
+  const [localChapterId, setLocalChapterId] = useState<string | null>(null)
+  const lockUntilRef = useRef(0)
+  const programmaticRef = useRef(false)
+  const programmaticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastTopRef = useRef(0)
+  const dirRef = useRef(0)
+
+  function lockScroll(ms: number) {
+    lockUntilRef.current = Date.now() + ms
+  }
+
+  function markProgrammaticScroll(holdMs = 400) {
+    programmaticRef.current = true
+    if (programmaticTimerRef.current) clearTimeout(programmaticTimerRef.current)
+    programmaticTimerRef.current = setTimeout(() => {
+      programmaticRef.current = false
+      programmaticTimerRef.current = null
+    }, holdMs)
+  }
   const cacheRef = useRef<Map<string, ContentBlock[]>>(new Map())
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const readerRef = useRef<HTMLElement | null>(null)
   const pageNavRef = useRef(false)
 
-  const activeChapter = chapters.find((c) => c.id === activeChapterId) ?? null
+  const activeChapter = chapters.find((c) => c.id === (localChapterId ?? activeChapterId)) ?? null
   const activeIndex = activeChapter ? chapters.indexOf(activeChapter) : -1
   const isPdf = book?.format === 'pdf'
+
+  useEffect(() => {
+    setLocalChapterId(null)
+  }, [chapterRequest])
+
   useEffect(() => {
     const onChange = () => {
       setExpanded(document.fullscreenElement === readerRef.current)
@@ -129,14 +155,54 @@ export function BookContent() {
     }
   }
 
-  function goPrevChapter() {
-    if (activeIndex <= 0) return
-    setActiveChapterId(chapters[activeIndex - 1].id)
-  }
-
   function goNextChapter() {
     if (activeIndex < 0 || activeIndex >= chapters.length - 1) return
-    setActiveChapterId(chapters[activeIndex + 1].id)
+    lockScroll(1500)
+    markProgrammaticScroll(6000)
+    const target = chapters[activeIndex + 1]
+    setLocalChapterId(target.id)
+    useBookStore.setState({ activeChapterId: target.id })
+  }
+
+  function goPrevChapter() {
+    if (activeIndex <= 0) return
+    lockScroll(1500)
+    markProgrammaticScroll(6000)
+    const target = chapters[activeIndex - 1]
+    setLocalChapterId(target.id)
+    useBookStore.setState({ activeChapterId: target.id })
+  }
+
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el || !contScroll) return
+    if (programmaticRef.current) {
+      lastTopRef.current = el.scrollTop
+      return
+    }
+    if (Date.now() < lockUntilRef.current) {
+      lastTopRef.current = el.scrollTop
+      return
+    }
+    const prev = lastTopRef.current
+    const cur = el.scrollTop
+    if (cur > prev) dirRef.current = 1
+    else if (cur < prev) dirRef.current = -1
+    lastTopRef.current = cur
+    const atBottom = cur + el.clientHeight >= el.scrollHeight - 24
+    if (atBottom && dirRef.current === 1) {
+      goNextChapter()
+    }
+  }
+
+  function handleWheel(e: ReactWheelEvent<HTMLDivElement>) {
+    const el = scrollRef.current
+    if (!el || !contScroll) return
+    if (Date.now() < lockUntilRef.current) return
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
+    if (e.deltaY > 0 && atBottom) {
+      goNextChapter()
+    }
   }
 
   useEffect(() => {
@@ -195,6 +261,10 @@ export function BookContent() {
       cancelled = true
     }
   }, [activeChapter, bookData, book, pdfPage])
+
+  useEffect(() => {
+    if (state.status !== 'ready') return
+  }, [state])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
@@ -336,7 +406,7 @@ export function BookContent() {
         <Button
           size="sm"
           variant="outline"
-          onClick={goPrevChapter}
+          onClick={() => goPrevChapter()}
           disabled={activeIndex <= 0}
           title="上一章"
         >
@@ -345,7 +415,7 @@ export function BookContent() {
         <Button
           size="sm"
           variant="outline"
-          onClick={goNextChapter}
+          onClick={() => goNextChapter()}
           disabled={activeIndex < 0 || activeIndex >= chapters.length - 1}
           title="下一章"
         >
@@ -373,11 +443,21 @@ export function BookContent() {
         >
           下一页
         </Button>
+        <Button
+          size="sm"
+          variant={contScroll ? 'secondary' : 'ghost'}
+          onClick={() => setContScroll((v) => !v)}
+          title="连续滚动：滚到底部自动进入下一章，滚回顶部自动回到上一章"
+        >
+          连续滚动
+        </Button>
       </div>
       <div
         ref={scrollRef}
         className="reader-content min-h-0 flex-1 overflow-y-auto rounded-md p-4"
         style={readerStyle}
+        onScroll={handleScroll}
+        onWheel={handleWheel}
       >
         {state.status === 'idle' ? (
           <p className="text-sm opacity-70">

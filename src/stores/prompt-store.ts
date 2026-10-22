@@ -26,7 +26,7 @@ function genId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
-export const usePromptStore = create<PromptState>()(
+const basePromptStore = create<PromptState>()(
   persist(
     (set) => ({
       prompts: [],
@@ -60,3 +60,10 @@ export const usePromptStore = create<PromptState>()(
     { name: STORAGE_KEY },
   ),
 )
+
+type PromptStore = typeof basePromptStore
+
+const scope = globalThis as typeof globalThis & { __aiReadPromptStore?: PromptStore }
+
+export const usePromptStore: PromptStore =
+  scope.__aiReadPromptStore ?? (scope.__aiReadPromptStore = basePromptStore)

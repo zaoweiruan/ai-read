@@ -16,6 +16,7 @@ interface BookState {
   chapters: Chapter[]
   selectedChapterIds: string[]
   activeChapterId: string | null
+  chapterRequest: number
   groups: ChapterGroup[]
   progress: ProcessingProgress
   summary: SummaryResult | null
@@ -26,6 +27,7 @@ interface BookState {
   setBookData: (data: ArrayBuffer | null) => void
   setChapters: (chapters: Chapter[]) => void
   setActiveChapterId: (id: string | null) => void
+  requestChapter: (id: string) => void
   setSummary: (summary: SummaryResult | null) => void
   setMindMap: (mindMap: MindMapResult | null) => void
   setMindMapScope: (scope: 'book' | 'chapter' | null) => void
@@ -70,7 +72,7 @@ const safeStorage = {
   },
 }
 
-export const useBookStore = create<BookState>()(
+const baseBookStore = create<BookState>()(
   persist(
     (set) => ({
       book: null,
@@ -78,6 +80,7 @@ export const useBookStore = create<BookState>()(
       chapters: [],
       selectedChapterIds: [],
       activeChapterId: null,
+      chapterRequest: 0,
       groups: [],
       progress: initialProgress,
       summary: null,
@@ -96,6 +99,8 @@ export const useBookStore = create<BookState>()(
           mindMapScope: null,
         }),
       setActiveChapterId: (id) => set({ activeChapterId: id }),
+      requestChapter: (id) =>
+        set((state) => ({ activeChapterId: id, chapterRequest: state.chapterRequest + 1 })),
       setSummary: (summary) => set({ summary }),
       setMindMap: (mindMap) => set({ mindMap }),
       setMindMapScope: (mindMapScope) => set({ mindMapScope }),
@@ -120,9 +125,10 @@ export const useBookStore = create<BookState>()(
           bookData: null,
           chapters: [],
           selectedChapterIds: [],
-          activeChapterId: null,
-          groups: [],
-          progress: initialProgress,
+      activeChapterId: null,
+      chapterRequest: 0,
+      groups: [],
+      progress: initialProgress,
           summary: null,
           mindMap: null,
           mindMapScope: null,
@@ -146,3 +152,10 @@ export const useBookStore = create<BookState>()(
     },
   ),
 )
+
+type BookStore = typeof baseBookStore
+
+const scope = globalThis as typeof globalThis & { __aiReadBookStore?: BookStore }
+
+export const useBookStore: BookStore =
+  scope.__aiReadBookStore ?? (scope.__aiReadBookStore = baseBookStore)

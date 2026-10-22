@@ -32,7 +32,7 @@ export const DEFAULT_TYPOGRAPHY: TypographyState = {
 const clampFontSize = (size: number): number =>
   Math.min(22, Math.max(15, Math.round(size)))
 
-export const useReaderStore = create<ReaderState>()(
+const baseReaderStore = create<ReaderState>()(
   persist(
     (set) => ({
       ...DEFAULT_TYPOGRAPHY,
@@ -46,3 +46,10 @@ export const useReaderStore = create<ReaderState>()(
     { name: 'ai-read:reader' },
   ),
 )
+
+type ReaderStore = typeof baseReaderStore
+
+const scope = globalThis as typeof globalThis & { __aiReadReaderStore?: ReaderStore }
+
+export const useReaderStore: ReaderStore =
+  scope.__aiReadReaderStore ?? (scope.__aiReadReaderStore = baseReaderStore)
