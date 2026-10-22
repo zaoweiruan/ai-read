@@ -133,7 +133,7 @@ export function BookContent() {
   const activeIndex = activeChapter ? chapters.indexOf(activeChapter) : -1
   const isPdf = book?.format === 'pdf'
   const paged = pageMode === 'paged'
-  const pdfStep = twoPage ? 2 : 1
+  const pdfStep = 1
 
   useEffect(() => {
     setLocalChapterId(null)
@@ -314,21 +314,11 @@ export function BookContent() {
         } else {
           const doc = await getPdfDocument(bookData)
           setTotalPages(doc.numPages)
-          const pageNumbers =
-            twoPage && pdfPage + 1 <= doc.numPages ? [pdfPage, pdfPage + 1] : [pdfPage]
-          const pageBlocks: Extract<ContentBlock, { kind: 'page' }>[] = []
-          for (const pageNumber of pageNumbers) {
-            const text = await getPageText(doc, pageNumber)
-            pageBlocks.push({ kind: 'page', text, page: pageNumber })
-          }
-          blocks = twoPage
-            ? pageBlocks
-            : pageBlocks.flatMap((block) =>
-                block.text
-                  .split(/\n{2,}/)
-                  .map((p) => p.trim())
-                  .filter((p) => p.length > 0),
-              )
+          const text = await getPageText(doc, pdfPage)
+          blocks = text
+            .split(/\n{2,}/)
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0)
         }
         cacheRef.current.set(cacheKey, blocks)
         if (!cancelled) setState({ status: 'ready', blocks })
@@ -573,9 +563,7 @@ export function BookContent() {
           {paged && !isPdf
             ? `第 ${pageIndex + 1} / ${totalScreens} 屏`
             : isPdf
-              ? twoPage
-                ? `第 ${pdfPage}-${Math.min(pdfPage + 1, totalPages || pdfPage + 1)} 页`
-                : `第 ${pdfPage} / ${totalPages || '?'} 页`
+              ? `第 ${pdfPage} / ${totalPages || '?'} 页`
               : 'EPUB 无分页'}
         </span>
         <Button
@@ -668,7 +656,7 @@ export function BookContent() {
               className={cn(
                 pageBlockCount > 1
                   ? 'grid grid-cols-2 gap-6'
-                  : twoPage && !isPdf
+                  : twoPage
                     ? 'columns-2 gap-8'
                     : undefined,
               )}
