@@ -151,6 +151,8 @@ pnpm install          按 pnpm-lock.yaml 安装依赖
 | 数据 / 环境 | 相对路径 | 核心物理说明 |
 | --- | --- | --- |
 | 需求文档（唯一需求源） | `docs/spec/ai-read 需求.md` | 178 行，功能与技术栈的最终依据 |
+| 优化需求文档 | `docs/spec/ai-read 优化需求.md` | 分任务/可校验/可流式提示词体系 + RAG 问答的增量需求 |
+| 远端仓库 | `https://github.com/zaoweiruan/ai-read.git` | 账号 `zaoweiruan`，私有库；主分支 `main`；本机 443 直连不通，推送需带代理 `-c http.proxy=http://127.0.0.1:10808` |
 | 静态文档主索引 | `docs/INDEX.md` | 所有文档的唯一分类入口 |
 | 进度跟踪（动态） | `docs/plans/project-plans-tracker.md` | 唯一允许记录进度勾选的文件 |
 | 用户 AI 服务配置 | localStorage `ai-read:settings` | zod 校验；含 apiKey —— **禁止写入任何文档或记忆** |
