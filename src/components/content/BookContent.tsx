@@ -133,6 +133,7 @@ export function BookContent() {
   const activeIndex = activeChapter ? chapters.indexOf(activeChapter) : -1
   const isPdf = book?.format === 'pdf'
   const paged = pageMode === 'paged'
+  const pdfStep = twoPage ? 2 : 1
 
   useEffect(() => {
     setLocalChapterId(null)
@@ -242,8 +243,8 @@ export function BookContent() {
     if (!el || !contScroll) return
     if (paged) {
       if (isPdf) {
-        if (e.deltaY > 0) goToPage(pdfPage + 1)
-        else if (e.deltaY < 0) goToPage(pdfPage - 1)
+        if (e.deltaY > 0) goToPage(pdfPage + pdfStep)
+        else if (e.deltaY < 0) goToPage(pdfPage - pdfStep)
         return
       }
       if (e.deltaY > 0) nextScreen()
@@ -557,7 +558,11 @@ export function BookContent() {
           size="sm"
           variant="outline"
           onClick={() =>
-            paged ? (isPdf ? goToPage(pdfPage - 1) : prevScreen()) : goToPage(pdfPage - 1)
+            paged
+              ? isPdf
+                ? goToPage(pdfPage - pdfStep)
+                : prevScreen()
+              : goToPage(pdfPage - pdfStep)
           }
           disabled={paged ? activeIndex <= 0 && pageIndex === 0 : !isPdf || pdfPage <= 1}
           title={paged ? '上一屏' : isPdf ? '上一页' : 'EPUB 无分页'}
@@ -568,19 +573,25 @@ export function BookContent() {
           {paged && !isPdf
             ? `第 ${pageIndex + 1} / ${totalScreens} 屏`
             : isPdf
-              ? `第 ${pdfPage} / ${totalPages || '?'} 页`
+              ? twoPage
+                ? `第 ${pdfPage}-${Math.min(pdfPage + 1, totalPages || pdfPage + 1)} 页`
+                : `第 ${pdfPage} / ${totalPages || '?'} 页`
               : 'EPUB 无分页'}
         </span>
         <Button
           size="sm"
           variant="outline"
           onClick={() =>
-            paged ? (isPdf ? goToPage(pdfPage + 1) : nextScreen()) : goToPage(pdfPage + 1)
+            paged
+              ? isPdf
+                ? goToPage(pdfPage + pdfStep)
+                : nextScreen()
+              : goToPage(pdfPage + pdfStep)
           }
           disabled={
             paged
               ? activeIndex < 0 || (activeIndex >= chapters.length - 1 && pageIndex >= totalScreens - 1)
-              : !isPdf || (totalPages > 0 && pdfPage >= totalPages)
+              : !isPdf || (totalPages > 0 && pdfPage + pdfStep - 1 >= totalPages)
           }
           title={paged ? '下一屏' : isPdf ? '下一页' : 'EPUB 无分页'}
         >
