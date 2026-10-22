@@ -53,6 +53,25 @@ function cycle<T>(list: readonly T[], current: T): T {
   return list[(i + 1) % list.length]
 }
 
+function ReaderImage({ src, alt }: { src: string; alt: string }) {
+  const [iconWidth, setIconWidth] = useState<string | undefined>(undefined)
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onLoad={(e) => {
+        const el = e.currentTarget
+        if (el.naturalWidth > 0 && el.naturalWidth <= 200) {
+          setIconWidth(`min(${el.naturalWidth}px, 1.5em)`)
+        }
+      }}
+      style={iconWidth ? { width: iconWidth, maxWidth: iconWidth } : undefined}
+      className="max-h-[70vh] w-auto max-w-full rounded-md"
+    />
+  )
+}
+
 export function BookContent() {
   const book = useBookStore((s) => s.book)
   const bookData = useBookStore((s) => s.bookData)
@@ -70,6 +89,10 @@ export function BookContent() {
   const setLetterSpacing = useReaderStore((s) => s.setLetterSpacing)
   const setFontFamily = useReaderStore((s) => s.setFontFamily)
   const setTheme = useReaderStore((s) => s.setTheme)
+  const twoPage = useReaderStore((s) => s.twoPage)
+  const setTwoPage = useReaderStore((s) => s.setTwoPage)
+  const pageMode = useReaderStore((s) => s.pageMode)
+  const setPageMode = useReaderStore((s) => s.setPageMode)
   const resetTypography = useReaderStore((s) => s.resetTypography)
   const [state, setState] = useState<LoadState>({ status: 'idle' })
   const [pdfPage, setPdfPage] = useState(1)
@@ -77,6 +100,9 @@ export function BookContent() {
   const [expanded, setExpanded] = useState(false)
   const [contScroll, setContScroll] = useState(true)
   const [localChapterId, setLocalChapterId] = useState<string | null>(null)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [totalScreens, setTotalScreens] = useState(1)
+  const [viewportH, setViewportH] = useState(0)
   const lockUntilRef = useRef(0)
   const programmaticRef = useRef(false)
   const programmaticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -98,12 +124,15 @@ export function BookContent() {
   }
   const cacheRef = useRef<Map<string, ContentBlock[]>>(new Map())
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
   const readerRef = useRef<HTMLElement | null>(null)
   const pageNavRef = useRef(false)
+  const pendingLastScreenRef = useRef(false)
 
   const activeChapter = chapters.find((c) => c.id === (localChapterId ?? activeChapterId)) ?? null
   const activeIndex = activeChapter ? chapters.indexOf(activeChapter) : -1
   const isPdf = book?.format === 'pdf'
+  const paged = pageMode === 'paged'
 
   useEffect(() => {
     setLocalChapterId(null)
@@ -164,6 +193,8 @@ export function BookContent() {
     lockScroll(1200)
     markProgrammaticScroll(2500)
     pendingBottomRef.current = false
+    pendingLastScreenRef.current = false
+    setPageIndex(0)
     const target = chapters[activeIndex + 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -174,6 +205,8 @@ export function BookContent() {
     lockScroll(1200)
     markProgrammaticScroll(2500)
     pendingBottomRef.current = true
+    pendingLastScreenRef.current = paged
+    setPageIndex(0)
     const target = chapters[activeIndex - 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -207,6 +240,16 @@ export function BookContent() {
   function handleWheel(e: ReactWheelEvent<HTMLDivElement>) {
     const el = scrollRef.current
     if (!el || !contScroll) return
+    if (paged) {
+      if (isPdf) {
+        if (e.deltaY > 0) goToPage(pdfPage + 1)
+        else if (e.deltaY < 0) goToPage(pdfPage - 1)
+        return
+      }
+      if (e.deltaY > 0) nextScreen()
+      else if (e.deltaY < 0) prevScreen()
+      return
+    }
     if (Date.now() < lockUntilRef.current) return
     const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
     const atTop = el.scrollTop <= 24
@@ -215,6 +258,22 @@ export function BookContent() {
     } else if (e.deltaY < 0 && atTop) {
       goPrevChapter()
     }
+  }
+
+  function nextScreen() {
+    if (pageIndex < totalScreens - 1) {
+      setPageIndex(pageIndex + 1)
+      return
+    }
+    goNextChapter()
+  }
+
+  function prevScreen() {
+    if (pageIndex > 0) {
+      setPageIndex(pageIndex - 1)
+      return
+    }
+    goPrevChapter()
   }
 
   useEffect(() => {
@@ -254,11 +313,21 @@ export function BookContent() {
         } else {
           const doc = await getPdfDocument(bookData)
           setTotalPages(doc.numPages)
-          const text = await getPageText(doc, pdfPage)
-          blocks = text
-            .split(/\n{2,}/)
-            .map((p) => p.trim())
-            .filter((p) => p.length > 0)
+          const pageNumbers =
+            twoPage && pdfPage + 1 <= doc.numPages ? [pdfPage, pdfPage + 1] : [pdfPage]
+          const pageBlocks: Extract<ContentBlock, { kind: 'page' }>[] = []
+          for (const pageNumber of pageNumbers) {
+            const text = await getPageText(doc, pageNumber)
+            pageBlocks.push({ kind: 'page', text, page: pageNumber })
+          }
+          blocks = twoPage
+            ? pageBlocks
+            : pageBlocks.flatMap((block) =>
+                block.text
+                  .split(/\n{2,}/)
+                  .map((p) => p.trim())
+                  .filter((p) => p.length > 0),
+              )
         }
         cacheRef.current.set(cacheKey, blocks)
         if (!cancelled) setState({ status: 'ready', blocks })
@@ -279,6 +348,18 @@ export function BookContent() {
   useEffect(() => {
     if (state.status !== 'ready') return
     markProgrammaticScroll(800)
+    if (paged) {
+      if (!pendingLastScreenRef.current) return
+      pendingLastScreenRef.current = false
+      requestAnimationFrame(() => {
+        const el = contentRef.current
+        const box = scrollRef.current
+        if (!el || !box) return
+        const total = Math.max(1, Math.ceil(el.scrollHeight / Math.max(box.clientHeight, 1)))
+        setPageIndex(total - 1)
+      })
+      return
+    }
     if (!pendingBottomRef.current) return
     pendingBottomRef.current = false
     const el = scrollRef.current
@@ -288,7 +369,25 @@ export function BookContent() {
       el.scrollTop = el.scrollHeight
     })
     return () => cancelAnimationFrame(id)
-  }, [state])
+  }, [state, paged])
+
+  useEffect(() => {
+    const el = contentRef.current
+    const box = scrollRef.current
+    if (!el || !box) return
+    const measure = (): void => {
+      const height = box.clientHeight
+      setViewportH(height)
+      const total = Math.max(1, Math.ceil(el.scrollHeight / Math.max(height, 1)))
+      setTotalScreens(total)
+      setPageIndex((i) => Math.min(i, total - 1))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [state, paged, twoPage])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
@@ -298,6 +397,14 @@ export function BookContent() {
     if (state.status !== 'ready') return []
     return state.blocks
   }, [state])
+  const pageBlockCount = useMemo(
+    () =>
+      paragraphs.filter(
+        (block): block is Extract<ContentBlock, { kind: 'page' }> =>
+          typeof block !== 'string' && block.kind === 'page',
+      ).length,
+    [paragraphs],
+  )
 
   const readerStyle = {
     '--reader-font-size': `${fontSize}px`,
@@ -449,36 +556,79 @@ export function BookContent() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => goToPage(pdfPage - 1)}
-          disabled={!isPdf || pdfPage <= 1}
-          title={isPdf ? '上一页' : 'EPUB 无分页'}
+          onClick={() =>
+            paged ? (isPdf ? goToPage(pdfPage - 1) : prevScreen()) : goToPage(pdfPage - 1)
+          }
+          disabled={paged ? activeIndex <= 0 && pageIndex === 0 : !isPdf || pdfPage <= 1}
+          title={paged ? '上一屏' : isPdf ? '上一页' : 'EPUB 无分页'}
         >
           上一页
         </Button>
         <span className="text-xs text-muted-foreground">
-          {isPdf ? `第 ${pdfPage} / ${totalPages || '?'} 页` : 'EPUB 无分页'}
+          {paged && !isPdf
+            ? `第 ${pageIndex + 1} / ${totalScreens} 屏`
+            : isPdf
+              ? `第 ${pdfPage} / ${totalPages || '?'} 页`
+              : 'EPUB 无分页'}
         </span>
         <Button
           size="sm"
           variant="outline"
-          onClick={() => goToPage(pdfPage + 1)}
-          disabled={!isPdf || (totalPages > 0 && pdfPage >= totalPages)}
-          title={isPdf ? '下一页' : 'EPUB 无分页'}
+          onClick={() =>
+            paged ? (isPdf ? goToPage(pdfPage + 1) : nextScreen()) : goToPage(pdfPage + 1)
+          }
+          disabled={
+            paged
+              ? activeIndex < 0 || (activeIndex >= chapters.length - 1 && pageIndex >= totalScreens - 1)
+              : !isPdf || (totalPages > 0 && pdfPage >= totalPages)
+          }
+          title={paged ? '下一屏' : isPdf ? '下一页' : 'EPUB 无分页'}
         >
           下一页
         </Button>
+        {!paged ? (
+          <Button
+            size="sm"
+            variant={contScroll ? 'secondary' : 'ghost'}
+            onClick={() => setContScroll((v) => !v)}
+            title="连续滚动：滚到底部自动进入下一章，滚回顶部自动回到上一章"
+          >
+            连续滚动
+          </Button>
+        ) : null}
         <Button
           size="sm"
-          variant={contScroll ? 'secondary' : 'ghost'}
-          onClick={() => setContScroll((v) => !v)}
-          title="连续滚动：滚到底部自动进入下一章，滚回顶部自动回到上一章"
+          variant={twoPage ? 'secondary' : 'outline'}
+          onClick={() => setTwoPage(!twoPage)}
+          title="双页并列显示"
+          aria-label="双页并列"
         >
-          连续滚动
+          双页
+        </Button>
+        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+        <Button
+          size="sm"
+          variant={pageMode === 'continuous' ? 'secondary' : 'outline'}
+          onClick={() => setPageMode('continuous')}
+          title="换页方式：连续滚动"
+        >
+          连续
+        </Button>
+        <Button
+          size="sm"
+          variant={pageMode === 'paged' ? 'secondary' : 'outline'}
+          onClick={() => setPageMode('paged')}
+          title="换页方式：整屏切换"
+        >
+          切换
         </Button>
       </div>
       <div
         ref={scrollRef}
-        className="reader-content min-h-0 flex-1 overflow-y-auto rounded-md p-4"
+        className={cn(
+          'reader-content min-h-0 flex-1 rounded-md p-4',
+          paged ? 'overflow-hidden' : 'overflow-y-auto',
+        )}
         style={readerStyle}
         onScroll={handleScroll}
         onWheel={handleWheel}
@@ -502,7 +652,21 @@ export function BookContent() {
         ) : null}
         {state.status === 'ready' ? (
           paragraphs.length > 0 ? (
-            <div>
+            <div
+              ref={contentRef}
+              className={cn(
+                pageBlockCount > 1
+                  ? 'grid grid-cols-2 gap-6'
+                  : twoPage && !isPdf
+                    ? 'columns-2 gap-8'
+                    : undefined,
+              )}
+              style={
+                paged
+                  ? { transform: `translateY(-${pageIndex * viewportH}px)` }
+                  : undefined
+              }
+            >
               {paragraphs.map((block, i) =>
                 typeof block === 'string' ? (
                   <p key={i} className="reader-para whitespace-pre-wrap">
@@ -512,14 +676,19 @@ export function BookContent() {
                   <div key={`md-${i}`} className="markdown-body">
                     {renderMarkdown(block.text)}
                   </div>
+                ) : block.kind === 'page' ? (
+                  <div key={`pg-${i}`} className="whitespace-pre-wrap">
+                    {block.text
+                      .split(/\n{2,}/)
+                      .map((p, j) => (
+                        <p key={j} className="reader-para">
+                          {p.trim()}
+                        </p>
+                      ))}
+                  </div>
                 ) : (
                   <figure key={`img-${i}`} className="my-3 flex flex-col items-center">
-                    <img
-                      src={block.src}
-                      alt={block.alt}
-                      loading="lazy"
-                      className="max-h-[70vh] w-auto max-w-full rounded-md"
-                    />
+                    <ReaderImage src={block.src} alt={block.alt} />
                     {block.alt ? (
                       <figcaption className="mt-1 text-xs opacity-70">
                         {block.alt}

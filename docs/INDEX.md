@@ -34,6 +34,7 @@
 - [2026-10-22 设计 阅读区连续滚动 v1.0](plans/2026-10-22-Design-Reader-Continuous-Scroll-v1.0.md) — 滚到底自动进入下一章（连续阅读），「连续滚动」开关；附带修复 zustand store HMR 多实例与模块缓存陈旧两个 dev 基础问题。
 - [2026-10-22 设计 Markdown 文档支持 v1.0](plans/2026-10-22-Design-Markdown-Support-v1.0.md) — .md/.markdown 上传解析（front matter + H1/H2 切章）与阅读区 Markdown 渲染（标题/列表/代码块/表格/引用/行内样式）。
 - [2026-10-22 设计 恢复章节列折叠 + 移除封面框 v1.0](plans/2026-10-22-Design-Outline-Restore-Cover-Remove-v1.0.md) — 找回章节列「«」折叠与 40px 导轨再展开；上传区不再展示封面图。
+- [2026-10-22 设计 阅读区：图标缩放 · AI 面板折叠 · 双页并列 · 换页方式 v1.0](plans/2026-10-22-Design-Reader-PageModes-v1.0.md) — 小图标按 min(自然宽,1.5em) 收敛；处理面板可折叠为 40px 导轨；双页并列（PDF 两页 / 正文双栏）；换页方式「连续 / 切换」整屏翻页。
 
 ## 环境快照（build-env）
 

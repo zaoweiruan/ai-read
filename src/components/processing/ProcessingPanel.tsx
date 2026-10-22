@@ -11,7 +11,8 @@ import {
 } from '@/prompts';
 import { getChapterContent } from '@/services/epub';
 import { getPageText, getPdfDocument } from '@/services/pdf';
-import { useBookStore } from '@/stores/book-store';
+import { useBookStore } from '@/stores/book-store'
+import { useReaderStore } from '@/stores/reader-store';
 import { usePromptStore } from '@/stores/prompt-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import type {
@@ -173,6 +174,7 @@ export default function ProcessingPanel() {
   const setSummary = useBookStore((s) => s.setSummary);
   const setMindMap = useBookStore((s) => s.setMindMap);
   const setMindMapScope = useBookStore((s) => s.setMindMapScope);
+  const setProcessingVisible = useReaderStore((s) => s.setProcessingVisible);
 
   const providers = useSettingsStore((s) => s.providers);
   const activeProviderId = useSettingsStore((s) => s.activeProviderId);
@@ -544,6 +546,28 @@ export default function ProcessingPanel() {
         <div className="flex items-center gap-1.5">
           <Badge>{chapters.length} 章</Badge>
           <Badge>{book?.format.toUpperCase() ?? ''}</Badge>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setProcessingVisible(false)}
+            title="折叠处理面板"
+            aria-label="折叠处理面板"
+            className="h-7 w-7 p-0"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 3.5 10.5 8 6 12.5" />
+            </svg>
+          </Button>
         </div>
       </div>
 

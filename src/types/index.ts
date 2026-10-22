@@ -42,6 +42,11 @@ export type ContentBlock =
       alt: string
     }
   | {
+      kind: 'page'
+      text: string
+      page: number
+    }
+  | {
       kind: 'markdown'
       text: string
     }

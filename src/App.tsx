@@ -18,6 +18,8 @@ export default function App() {
   const configured = useSettingsStore((s) => s.isConfigured())
   const outlineVisible = useReaderStore((s) => s.outlineVisible)
   const setOutlineVisible = useReaderStore((s) => s.setOutlineVisible)
+  const processingVisible = useReaderStore((s) => s.processingVisible)
+  const setProcessingVisible = useReaderStore((s) => s.setProcessingVisible)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -59,8 +61,12 @@ export default function App() {
               className={cn(
                 'grid gap-4',
                 outlineVisible
-                  ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_360px]'
-                  : 'lg:grid-cols-[40px_minmax(0,1fr)_360px]',
+                  ? processingVisible
+                    ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_360px]'
+                    : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_40px]'
+                  : processingVisible
+                    ? 'lg:grid-cols-[40px_minmax(0,1fr)_360px]'
+                    : 'lg:grid-cols-[40px_minmax(0,1fr)_40px]',
               )}
             >
               {outlineVisible ? (
@@ -87,9 +93,27 @@ export default function App() {
               <div className="h-[560px] lg:h-[640px]">
                 <BookContent />
               </div>
-              <div className="h-[560px] lg:h-[640px]">
-                <ProcessingPanel />
-              </div>
+              {processingVisible ? (
+                <div className="h-[560px] lg:h-[640px]">
+                  <ProcessingPanel />
+                </div>
+              ) : (
+                <div className="hidden h-[560px] items-center justify-center lg:flex lg:h-[640px]">
+                  <button
+                    type="button"
+                    onClick={() => setProcessingVisible(true)}
+                    title="展开处理面板"
+                    className="rounded-md border border-border px-1.5 py-3 text-sm text-muted-foreground hover:bg-muted"
+                  >
+                    <span
+                      style={{ writingMode: 'vertical-rl' }}
+                      className="tracking-widest"
+                    >
+                      处理
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

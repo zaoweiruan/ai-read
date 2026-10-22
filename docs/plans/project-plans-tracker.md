@@ -194,3 +194,12 @@
 - [x] `ChapterList` 恢复「«」折叠按钮；`App` 恢复两态 grid 与 40px「章节」导轨（点击再展开）
 - [x] `BookUploader` 移除封面图片框（解析与字段保留，不展示）
 - [x] 验收（2026-10-22 浏览器 E2E）：折叠按钮存在 ✓ → 折叠后 grid 变为 40px 且导轨可见 ✓ → 点击导轨恢复三栏、章节列可见 ✓；页面封面图数量 0 ✓
+
+## 阶段 18：图标缩放 · AI 面板折叠 · 双页并列 · 换页方式（2026-10-22，设计 `plans/2026-10-22-Design-Reader-PageModes-v1.0.md`）
+
+- [x] `ReaderImage`：自然宽度 ≤200px 的小图标按 `min(自然宽, 1.5em)` 收敛（「注」记号不再过大），插图保持原尺寸
+- [x] `reader-store` 增加 `processingVisible` / `twoPage` / `pageMode`（均持久化）
+- [x] AI 处理面板折叠按钮（面板头右侧）→ 右栏收为 40px「处理」导轨，点击恢复 360px 面板
+- [x] 「双页」按钮：PDF 当前页 + 下一页并列（两栏网格）；EPUB / Markdown 正文 `columns-2` 双栏
+- [x] 换页方式「连续 / 切换」：切换模式按视口高度分屏（translateY 位移 + overflow-hidden），滚轮/按钮逐屏翻，末屏进下一章、首屏回上一章（定位末屏）；PDF 在切换模式下按**页**翻
+- [x] 验收（2026-10-22 浏览器 E2E）：小图标 styleWidth=min(20px,1.5em) 渲染 20px（不放大、且 ≤1.5em）✓；双页：PDF 两栏并排且内容为第 1/2 页 ✓、EPUB columnCount=2 ✓；切换：EPUB 第 1/1 屏 → 滚轮 → 第 1/2 屏 ✓、切回连续恢复「EPUB 无分页」✓；AI 面板折叠 → 导轨出现、grid 40px ✓ → 恢复 ✓
