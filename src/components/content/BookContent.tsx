@@ -157,8 +157,8 @@ export function BookContent() {
 
   function goNextChapter() {
     if (activeIndex < 0 || activeIndex >= chapters.length - 1) return
-    lockScroll(1500)
-    markProgrammaticScroll(6000)
+    lockScroll(1200)
+    markProgrammaticScroll(2500)
     const target = chapters[activeIndex + 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -166,8 +166,8 @@ export function BookContent() {
 
   function goPrevChapter() {
     if (activeIndex <= 0) return
-    lockScroll(1500)
-    markProgrammaticScroll(6000)
+    lockScroll(1200)
+    markProgrammaticScroll(2500)
     const target = chapters[activeIndex - 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -190,8 +190,11 @@ export function BookContent() {
     else if (cur < prev) dirRef.current = -1
     lastTopRef.current = cur
     const atBottom = cur + el.clientHeight >= el.scrollHeight - 24
+    const atTop = cur <= 24
     if (atBottom && dirRef.current === 1) {
       goNextChapter()
+    } else if (atTop && dirRef.current === -1) {
+      goPrevChapter()
     }
   }
 
@@ -200,8 +203,11 @@ export function BookContent() {
     if (!el || !contScroll) return
     if (Date.now() < lockUntilRef.current) return
     const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
+    const atTop = el.scrollTop <= 24
     if (e.deltaY > 0 && atBottom) {
       goNextChapter()
+    } else if (e.deltaY < 0 && atTop) {
+      goPrevChapter()
     }
   }
 
@@ -264,6 +270,7 @@ export function BookContent() {
 
   useEffect(() => {
     if (state.status !== 'ready') return
+    markProgrammaticScroll(800)
   }, [state])
 
   useEffect(() => {
