@@ -716,6 +716,11 @@ export function BookContent() {
           )
         ) : null}
       </div>
+      {paged ? (
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          第 {pageIndex + 1} / {totalScreens} 屏 · 向下滚动或点「下一页」继续查看本章后续内容
+        </p>
+      ) : null}
     </section>
   )
 }
