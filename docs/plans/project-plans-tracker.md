@@ -124,3 +124,12 @@
 - [x] L3 防塌陷：处理面板子项全部 `shrink-0`，面板 `overflow-y-auto` 内部滚动；右栏面板高 320/360
 - [x] L4 空态引导：BookContent 区分「无书 / 有书无文件」文案；ChapterList 空列表提示
 - [x] 验收（2026-10-21 浏览器 E2E）：无书时三 tab 可见（h=44px）+ 空态文案；上传→处理→刷新后 13 章与导读恢复、tab 全部可用、结果窗仍在右栏（x=889）、正文区提示重新上传；tablist `flex-shrink:0`、高 45px；截图 tabs-persistence-hardening
+
+## 阶段 10：思维导图居中 + 小地图拖拽修正（2026-10-22，设计 `plans/2026-10-22-Design-MindMap-Center-MiniDrag-v1.0.md`）
+
+- [x] 工具条新增「居中」按钮（`inst.toCenter()`：根节点居中且不改缩放）
+- [x] 小地图视口框按**真实可见区**计算（构造器宿主元素，修复 mind-elixir 覆盖 `position: relative` 导致的 2758px 撑高）
+- [x] 小地图 viewBox 只按节点包围盒计算（消除平移时的「呼吸」缩放）
+- [x] 视口框内按下不跳位、跟手拖拽；框外按下定位；`MutationObserver` 兜底刷新
+- [x] 导图来源徽标（整书 / 章节）：book-store `mindMapScope` + 面板左上角 Badge
+- [x] 验收（2026-10-22 mock E2E）：视口框可见尺寸 343×447px ✓；拖拽世界位移 (247,154) 与期望完全一致 ✓、按下不跳位 ✓、缩放稳定 ✓；居中按钮位移生效且 scale 不变 ✓；整书徽标 = 整书 ✓；截图 mindmap-center-minimap、mindmap-minimap-final

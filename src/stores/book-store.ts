@@ -20,6 +20,7 @@ interface BookState {
   progress: ProcessingProgress
   summary: SummaryResult | null
   mindMap: MindMapResult | null
+  mindMapScope: 'book' | 'chapter' | null
   activeMode: ProcessingMode
   setBook: (book: BookMeta | null) => void
   setBookData: (data: ArrayBuffer | null) => void
@@ -27,6 +28,7 @@ interface BookState {
   setActiveChapterId: (id: string | null) => void
   setSummary: (summary: SummaryResult | null) => void
   setMindMap: (mindMap: MindMapResult | null) => void
+  setMindMapScope: (scope: 'book' | 'chapter' | null) => void
   setActiveMode: (mode: ProcessingMode) => void
   toggleChapter: (id: string) => void
   selectAllChapters: () => void
@@ -80,6 +82,7 @@ export const useBookStore = create<BookState>()(
       progress: initialProgress,
       summary: null,
       mindMap: null,
+      mindMapScope: null,
       activeMode: 'summary',
       setBook: (book) => set({ book }),
       setBookData: (data) => set({ bookData: data }),
@@ -90,10 +93,12 @@ export const useBookStore = create<BookState>()(
           activeChapterId: chapters[0]?.id ?? null,
           summary: null,
           mindMap: null,
+          mindMapScope: null,
         }),
       setActiveChapterId: (id) => set({ activeChapterId: id }),
       setSummary: (summary) => set({ summary }),
       setMindMap: (mindMap) => set({ mindMap }),
+      setMindMapScope: (mindMapScope) => set({ mindMapScope }),
       setActiveMode: (activeMode) => set({ activeMode }),
       toggleChapter: (id) =>
         set((state) => ({
@@ -120,6 +125,7 @@ export const useBookStore = create<BookState>()(
           progress: initialProgress,
           summary: null,
           mindMap: null,
+          mindMapScope: null,
           activeMode: 'summary',
         }),
     }),
@@ -134,6 +140,7 @@ export const useBookStore = create<BookState>()(
         groups: state.groups,
         summary: state.summary,
         mindMap: state.mindMap,
+        mindMapScope: state.mindMapScope,
         activeMode: state.activeMode,
       }),
     },

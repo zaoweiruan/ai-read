@@ -241,7 +241,9 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
 type MindElixirInstance = {
   init: (data: { nodeData: MindMapNode; direction?: number }) => Promise<Error | undefined>;
   scaleFit: () => void;
+  toCenter: () => void;
   destroy: () => void;
+  viewportEl?: HTMLElement;
   scale: (scaleVal: number, offset?: { x: number; y: number }) => void;
   scaleVal: number;
   expandNode: (el: HTMLElement, isExpand?: boolean) => void;
@@ -325,6 +327,15 @@ function makeInverse(inst: MindElixirInstance): (screen: { x: number; y: number 
   });
 }
 
+function visibleSize(inst: MindElixirInstance): { width: number; height: number } {
+  const host = inst.viewportEl ?? inst.container.parentElement ?? inst.container;
+  const cw = inst.container.clientWidth || host.clientWidth;
+  const ch = inst.container.clientHeight || host.clientHeight;
+  const hw = host.clientWidth || cw;
+  const hh = host.clientHeight || ch;
+  return { width: Math.min(cw, hw), height: Math.min(ch, hh) };
+}
+
 function computeMini(inst: MindElixirInstance): MiniState | null {
   const inv = makeInverse(inst);
   const box = inst.container.getBoundingClientRect();
@@ -358,13 +369,10 @@ function computeMini(inst: MindElixirInstance): MiniState | null {
     maxX = Math.max(maxX, rect.x + rect.w);
     maxY = Math.max(maxY, rect.y + rect.h);
   }
+  const size = visibleSize(inst);
   const v0 = inv({ x: 0, y: 0 });
-  const v1 = inv({ x: inst.container.clientWidth, y: inst.container.clientHeight });
+  const v1 = inv({ x: size.width, y: size.height });
   const view: MiniRect = { x: v0.x, y: v0.y, w: Math.max(v1.x - v0.x, 1), h: Math.max(v1.y - v0.y, 1) };
-  minX = Math.min(minX, view.x);
-  minY = Math.min(minY, view.y);
-  maxX = Math.max(maxX, view.x + view.w);
-  maxY = Math.max(maxY, view.y + view.h);
   const padX = (maxX - minX) * 0.1 || 10;
   const padY = (maxY - minY) * 0.1 || 10;
   return {
@@ -385,7 +393,8 @@ function clientToWorld(
 
 function centerOn(inst: MindElixirInstance, point: { x: number; y: number }): void {
   const inv = makeInverse(inst);
-  const c = inv({ x: inst.container.clientWidth / 2, y: inst.container.clientHeight / 2 });
+  const size = visibleSize(inst);
+  const c = inv({ x: size.width / 2, y: size.height / 2 });
   const s = inst.scaleVal || 1;
   inst.move((point.x - c.x) * s, (point.y - c.y) * s, false);
 }
@@ -402,6 +411,7 @@ function installFreePan(inst: MindElixirInstance): void {
 
 function MindMapPanel({ result, title }: { result: MindMapResult; title: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scope = useBookStore((s) => s.mindMapScope);
   const miniRef = useRef<SVGSVGElement | null>(null);
   const instanceRef = useRef<MindElixirInstance | null>(null);
   const rafRef = useRef(0);
@@ -449,6 +459,13 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
     scheduleRefresh();
   }
 
+  function center() {
+    const inst = instanceRef.current;
+    if (!inst) return;
+    inst.toCenter();
+    scheduleRefresh();
+  }
+
   function setExpandAll(expand: boolean) {
     const inst = instanceRef.current;
     if (!inst) return;
@@ -466,8 +483,20 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
     if (!inst) return;
     e.preventDefault();
     const p = clientToWorld(inst, e.clientX, e.clientY);
-    centerOn(inst, p);
-    scheduleRefresh();
+    const viewEl = miniRef.current?.querySelector('rect.mm-view');
+    let inView = false;
+    if (viewEl) {
+      const vx = parseFloat(viewEl.getAttribute('x') ?? '0');
+      const vy = parseFloat(viewEl.getAttribute('y') ?? '0');
+      const vw = parseFloat(viewEl.getAttribute('width') ?? '0');
+      const vh = parseFloat(viewEl.getAttribute('height') ?? '0');
+      inView =
+        p.x >= vx && p.x <= vx + vw && p.y >= vy && p.y <= vy + vh;
+    }
+    if (!inView) {
+      centerOn(inst, p);
+      scheduleRefresh();
+    }
     let last = p;
     const onMove = (ev: MouseEvent) => {
       const q = clientToWorld(inst, ev.clientX, ev.clientY);
@@ -519,6 +548,7 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
         });
         instance = inst;
         instanceRef.current = inst;
+        inst.viewportEl = containerRef.current;
         return inst.init({
           nodeData: normalizeNodes(result.roots, title),
           direction: 1,
@@ -594,6 +624,8 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
     for (const ev of events) bus?.addListener(ev, onBus);
     const ro = new ResizeObserver(() => scheduleRefresh());
     ro.observe(el);
+    const mo = new MutationObserver(() => scheduleRefresh());
+    mo.observe(el, { childList: true, subtree: true });
     scheduleRefresh();
     return () => {
       el.removeEventListener('dblclick', onDbl);
@@ -601,6 +633,7 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
       el.removeEventListener('wheel', onBus);
       for (const ev of events) bus?.removeListener(ev, onBus);
       ro.disconnect();
+      mo.disconnect();
     };
   }, [status]);
 
@@ -610,7 +643,12 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
   return (
     <div className="space-y-2">
       <div className="mm-shell relative h-[28rem] overflow-hidden rounded-lg border border-border">
-        <div ref={containerRef} className="absolute inset-0" />
+        <div ref={containerRef} className="h-full w-full overflow-hidden" />
+        {scope ? (
+          <Badge className="absolute left-2 top-2 z-10">
+            {scope === 'book' ? '整书' : '章节'}
+          </Badge>
+        ) : null}
         <div className="absolute right-2 top-2 z-10 flex gap-1">
           <button
             type="button"
@@ -667,6 +705,19 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
           <button
             type="button"
             className={iconCls}
+            title="居中（保持当前缩放）"
+            aria-label="居中"
+            disabled={status !== 'ready'}
+            onClick={center}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="8" cy="8" r="2.4" />
+              <path d="M8 1.5v2.2M8 12.3v2.2M1.5 8h2.2M12.3 8h2.2" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={iconCls}
             title="展开全部"
             aria-label="展开全部"
             disabled={status !== 'ready'}
@@ -718,7 +769,8 @@ function MindMapPanel({ result, title }: { result: MindMapResult; title: string 
               height={mini.view.h}
               fill="color-mix(in srgb, var(--color-primary) 10%, transparent)"
               stroke="var(--color-primary)"
-              strokeWidth={Math.max(mini.view.w, mini.view.h) * 0.012}
+              strokeWidth={Math.max(Math.max(mini.view.w, mini.view.h) * 0.012, 2)}
+              style={{ cursor: 'grab' }}
             />
           </svg>
         ) : null}

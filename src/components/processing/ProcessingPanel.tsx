@@ -169,6 +169,7 @@ export default function ProcessingPanel() {
   const setProgress = useBookStore((s) => s.setProgress);
   const setSummary = useBookStore((s) => s.setSummary);
   const setMindMap = useBookStore((s) => s.setMindMap);
+  const setMindMapScope = useBookStore((s) => s.setMindMapScope);
 
   const providers = useSettingsStore((s) => s.providers);
   const activeProviderId = useSettingsStore((s) => s.activeProviderId);
@@ -380,6 +381,7 @@ export default function ProcessingPanel() {
             });
           }
         }
+        setMindMapScope('chapter');
         setMindMap({ roots });
       } else {
         const chapterMaps: string[] = [];
@@ -442,6 +444,7 @@ export default function ProcessingPanel() {
         );
         const root = mapMind(merged, 'book-root');
         root.topic = (merged.title ?? '').trim() || book?.title || '全书';
+        setMindMapScope('book');
         setMindMap({ roots: [root] });
       }
       setProgress({
