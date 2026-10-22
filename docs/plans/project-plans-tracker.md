@@ -148,3 +148,4 @@
 - [x] 同一 DOM 节点切换 → 思维导图实例不重建、结果不丢失
 - [x] `index.css`：全屏态铺满视口 + 导图高度 `calc(100vh - 170px)`
 - [x] 验收（2026-10-22 浏览器 E2E）：点击后容器成为 `document.fullscreenElement`（1280×720 = 视口）、按钮文案切为「退出全屏」、导读内容保留；再次点击恢复原位（319×407）且内容仍在；截图 result-fullscreen
+- [x] 修正：全屏背景变量写错（`--background` 未定义 → 元素透明 → 透出 Chromium 黑色 backdrop）；改用 `--color-background` / `--color-foreground` 并给 `::backdrop` 着色，实测全屏背景 `oklch(1 0 0)`、文字 `oklch(0.145 0 0)`；截图 result-fullscreen-fixed-bg

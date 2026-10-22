@@ -59,7 +59,12 @@ body {
 
 .mm-result-dock:fullscreen {
   padding: 20px;
-  background: var(--background);
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+.mm-result-dock:fullscreen::backdrop {
+  background: var(--color-background);
 }
 
 .mm-result-dock:fullscreen .mm-shell,

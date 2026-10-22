@@ -15,6 +15,17 @@
   - `.mm-result-dock:fullscreen .mm-shell`：导图高度 `calc(100vh - 160px)`，避免导图在全屏里过小；
   - 回退态同样通过 `.mm-result-dock.is-expanded` 类应用同样的高度规则。
 
+### 背景色修正（2026-10-22 追加）
+
+初版写的是 `background: var(--background)`，而项目主题变量是 Tailwind v4 的 **`--color-background`**，`--background` 未定义 → 整条声明失效 → 全屏元素透明 → 透出 Chromium `:fullscreen` 默认**黑色 backdrop**（用户截图确认）。
+
+修正：
+```css
+.mm-result-dock:fullscreen { background: var(--color-background); color: var(--color-foreground); }
+.mm-result-dock:fullscreen::backdrop { background: var(--color-background); }
+```
+实测：全屏背景 `oklch(1 0 0)`（白），文字 `oklch(0.145 0 0)`（近黑），与正文主题一致。
+
 ## 2. 验收
 
 - 结果窗右上出现「全屏」按钮；点击后该容器成为全屏元素（`document.fullscreenElement === 容器`）或进入回退态（`is-expanded`），结果内容铺满视口、思维导图高度随之变大；按钮文案变为「退出全屏」。
