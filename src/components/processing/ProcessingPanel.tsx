@@ -23,6 +23,7 @@ import type {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import ResultView from '@/components/results/ResultView';
 import { cn } from '@/lib/utils';
 
 const MODES: { value: ProcessingMode; label: string }[] = [
@@ -183,6 +184,7 @@ export default function ProcessingPanel() {
   const [options, setOptions] = useState<AdvancedOptions>(DEFAULT_OPTIONS);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
+  const [configOpen, setConfigOpen] = useState(false);
   const activeMode = useBookStore((s) => s.activeMode);
   const setActiveMode = useBookStore((s) => s.setActiveMode);
 
@@ -474,7 +476,7 @@ export default function ProcessingPanel() {
     progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-lg border border-border p-5">
+    <section className="flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-lg border border-border p-5">
       <div className="flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-semibold">处理</h2>
         <div className="flex items-center gap-1.5">
@@ -514,73 +516,107 @@ export default function ProcessingPanel() {
         ))}
       </div>
 
-      <div className="flex shrink-0 flex-col gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          服务
-          <select
-            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm"
-            value={activeProviderId ?? provider?.id ?? ''}
-            onChange={(e) => useSettingsStore.getState().setActiveProvider(e.target.value)}
-          >
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={options.smartChapterDetection}
-            onChange={(e) =>
-              setOptions({ ...options, smartChapterDetection: e.target.checked })
-            }
-          />
-          智能章节检测
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={options.skipIrrelevantChapters}
-            onChange={(e) =>
-              setOptions({ ...options, skipIrrelevantChapters: e.target.checked })
-            }
-          />
-          跳过无关章节
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          子章节深度
-          <select
-            className="h-8 rounded-md border border-border bg-background px-2 text-sm"
-            value={options.subchapterDepth}
-            onChange={(e) => setOptions({ ...options, subchapterDepth: Number(e.target.value) })}
-          >
-            <option value={0}>0</option>
-            <option value={1}>1</option>
-            <option value={2}>2</option>
-            <option value={3}>3</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-border pt-3">
-        {!running ? (
+      <div className="flex shrink-0 flex-col gap-2">
+        {running ? (
+          <div className="flex items-center gap-2">
+            <Button variant="destructive" size="sm" onClick={pause}>
+              暂停
+            </Button>
+            <span className="truncate text-xs text-muted-foreground">
+              {progress.completed}/{progress.total} {progress.currentStep}
+            </span>
+          </div>
+        ) : (
           <p className="text-xs text-muted-foreground">
             已选 {selected.length} 章 · 点击上方标签页立即处理
           </p>
-        ) : (
-          <Button variant="destructive" onClick={pause}>
-            暂停
-          </Button>
         )}
-        {progress.status === 'running' || progress.status === 'paused' ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {progress.completed}/{progress.total} {progress.currentStep}
-          </span>
-        ) : null}
         <Progress value={percent} />
+        {progress.status === 'paused' ? (
+          <span className="text-xs text-muted-foreground">已暂停</span>
+        ) : null}
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ResultView />
+      </div>
+
+      <div className="shrink-0 border-t border-border pt-2">
+        <button
+          type="button"
+          onClick={() => setConfigOpen((v) => !v)}
+          className="flex w-full items-center justify-between rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <span className="truncate">
+            配置（服务 / 高级选项）{provider ? ` · ${provider.name}` : ''}
+          </span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className={configOpen ? 'rotate-180' : ''}
+          >
+            <path d="M4 6.5 8 10.5l4-4" />
+          </svg>
+        </button>
+        {configOpen ? (
+          <div className="mt-2 flex flex-col gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              服务
+              <select
+                className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm"
+                value={activeProviderId ?? provider?.id ?? ''}
+                onChange={(e) => useSettingsStore.getState().setActiveProvider(e.target.value)}
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={options.smartChapterDetection}
+                onChange={(e) =>
+                  setOptions({ ...options, smartChapterDetection: e.target.checked })
+                }
+              />
+              智能章节检测
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={options.skipIrrelevantChapters}
+                onChange={(e) =>
+                  setOptions({ ...options, skipIrrelevantChapters: e.target.checked })
+                }
+              />
+              跳过无关章节
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              子章节深度
+              <select
+                className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+                value={options.subchapterDepth}
+                onChange={(e) => setOptions({ ...options, subchapterDepth: Number(e.target.value) })}
+              >
+                <option value={0}>0</option>
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
       </div>
     </section>
   );

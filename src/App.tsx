@@ -7,7 +7,6 @@ import { BookUploader } from '@/components/upload/BookUploader'
 import { ChapterList } from '@/components/chapters/ChapterList'
 import { BookContent } from '@/components/content/BookContent'
 import ProcessingPanel from '@/components/processing/ProcessingPanel'
-import ResultView from '@/components/results/ResultView'
 import PromptManager from '@/components/prompts/PromptManager'
 import { Button } from '@/components/ui/button'
 
@@ -88,13 +87,8 @@ export default function App() {
               <div className="h-[560px] lg:h-[640px]">
                 <BookContent />
               </div>
-              <div className="flex h-[560px] flex-col gap-4 lg:h-[640px]">
-                <div className="h-[320px] shrink-0 lg:h-[360px]">
-                  <ProcessingPanel />
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <ResultView />
-                </div>
+              <div className="h-[560px] lg:h-[640px]">
+                <ProcessingPanel />
               </div>
             </div>
           </div>

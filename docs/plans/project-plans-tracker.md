@@ -133,3 +133,10 @@
 - [x] 视口框内按下不跳位、跟手拖拽；框外按下定位；`MutationObserver` 兜底刷新
 - [x] 导图来源徽标（整书 / 章节）：book-store `mindMapScope` + 面板左上角 Badge
 - [x] 验收（2026-10-22 mock E2E）：视口框可见尺寸 343×447px ✓；拖拽世界位移 (247,154) 与期望完全一致 ✓、按下不跳位 ✓、缩放稳定 ✓；居中按钮位移生效且 scale 不变 ✓；整书徽标 = 整书 ✓；截图 mindmap-center-minimap、mindmap-minimap-final
+
+## 阶段 11：右栏重排（2026-10-22，设计 `plans/2026-10-22-Design-RightColumn-Layout-v1.0.md`）
+
+- [x] ResultView 内嵌 ProcessingPanel，紧贴模式 tab 下方（App 右栏只保留面板，移除独立结果容器）
+- [x] 原「服务 / 高级选项」降级为底部可折叠配置组（默认折叠，折叠头显示当前服务名）
+- [x] 进度 / 暂停 / 错误行上移至 tab 正下方；面板外层 `overflow-hidden`，仅结果窗内部滚动
+- [x] 验收（2026-10-22 浏览器 E2E）：tablist y=471 → 结果窗 y=572（在其下方）、x=909 右栏内；配置组默认折叠（服务/子章节深度不可见）→ 展开可见 → 再折叠隐藏；跑「当前章节总结」后导读渲染于 `#app-result` 内（resultTop 572 ≥ tablistBottom 516）且配置组保持折叠；截图 right-column-result-dock

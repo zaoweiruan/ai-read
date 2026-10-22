@@ -27,6 +27,7 @@
 - [2026-10-21 设计 结果窗右移与三 tab 共用 v1.0](plans/2026-10-21-Design-Result-RightDock-v1.0.md) — ResultView 移入右栏与处理面板共列；activeMode 单一事实源驱动结果窗切换；summary/mindMap 产物独立保留原子替换。
 - [2026-10-21 设计 模式 tab 永不再消失（四层加固）v1.0](plans/2026-10-21-Design-Tab-Persistence-Hardening-v1.0.md) — 常驻工作台 + book-store 持久化章节与结果 + 面板子项防 flex 塌陷 + 空态引导，四层保证模式 tab 任何状态下可见可点。
 - [2026-10-22 设计 思维导图居中与小地图拖拽 v1.0](plans/2026-10-22-Design-MindMap-Center-MiniDrag-v1.0.md) — 新增居中按钮（`toCenter` 不改缩放）、小地图视口框按真实可见区计算并支持跟手拖拽、viewBox 稳定化、导图来源徽标（整书/章节）。
+- [2026-10-22 设计 右栏重排（结果窗上移 + 配置组折叠）v1.0](plans/2026-10-22-Design-RightColumn-Layout-v1.0.md) — ResultView 内嵌处理面板置于 tab 下方；原「服务 / 高级选项」降级为底部可折叠配置组；进度行上移。
 
 ## 环境快照（build-env）
 
