@@ -54,13 +54,18 @@ function cycle<T>(list: readonly T[], current: T): T {
 }
 
 const COLUMN_GAP = 32
+const CONTENT_PADDING = 32
 
-function computeSpreads(el: HTMLElement, box: HTMLElement, twoPage: boolean): number {
+function computeSpreads(
+  el: HTMLElement,
+  twoPage: boolean,
+  usableH: number,
+): number {
   if (twoPage) {
     const spread = el.clientWidth + COLUMN_GAP
     return Math.max(1, Math.ceil(el.scrollWidth / Math.max(spread, 1)))
   }
-  return Math.max(1, Math.ceil(el.scrollHeight / Math.max(box.clientHeight, 1)))
+  return Math.max(1, Math.ceil(el.scrollHeight / Math.max(usableH, 1)))
 }
 
 function ReaderImage({ src, alt }: { src: string; alt: string }) {
@@ -357,7 +362,10 @@ export function BookContent() {
         const el = contentRef.current
         const box = scrollRef.current
         if (!el || !box) return
-        setPageIndex(computeSpreads(el, box, twoPage) - 1)
+        const linePx = Math.max(fontSize * lineHeight, 1)
+        const contentBox = Math.max(box.clientHeight - CONTENT_PADDING, linePx)
+        const usableH = Math.max(Math.floor(contentBox / linePx) * linePx, linePx)
+        setPageIndex(computeSpreads(el, twoPage, usableH) - 1)
       })
       return
     }
@@ -377,10 +385,12 @@ export function BookContent() {
     const box = scrollRef.current
     if (!el || !box) return
     const measure = (): void => {
-      const height = box.clientHeight
-      setViewportH(height)
+      const linePx = Math.max(fontSize * lineHeight, 1)
+      const contentBox = Math.max(box.clientHeight - CONTENT_PADDING, linePx)
+      const usableH = Math.max(Math.floor(contentBox / linePx) * linePx, linePx)
+      setViewportH(usableH)
       setSpreadW(el.clientWidth + COLUMN_GAP)
-      const total = computeSpreads(el, box, paged && twoPage)
+      const total = computeSpreads(el, paged && twoPage, usableH)
       setTotalScreens(total)
       setPageIndex((i) => Math.min(i, total - 1))
     }
@@ -394,7 +404,7 @@ export function BookContent() {
       ro.disconnect()
       mo.disconnect()
     }
-  }, [state, paged, twoPage])
+  }, [state, paged, twoPage, fontSize, lineHeight])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
