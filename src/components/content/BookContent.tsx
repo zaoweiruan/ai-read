@@ -53,6 +53,16 @@ function cycle<T>(list: readonly T[], current: T): T {
   return list[(i + 1) % list.length]
 }
 
+const COLUMN_GAP = 32
+
+function computeSpreads(el: HTMLElement, box: HTMLElement, twoPage: boolean): number {
+  if (twoPage) {
+    const spread = el.clientWidth + COLUMN_GAP
+    return Math.max(1, Math.ceil(el.scrollWidth / Math.max(spread, 1)))
+  }
+  return Math.max(1, Math.ceil(el.scrollHeight / Math.max(box.clientHeight, 1)))
+}
+
 function ReaderImage({ src, alt }: { src: string; alt: string }) {
   const [iconWidth, setIconWidth] = useState<string | undefined>(undefined)
   return (
@@ -103,6 +113,7 @@ export function BookContent() {
   const [pageIndex, setPageIndex] = useState(0)
   const [totalScreens, setTotalScreens] = useState(1)
   const [viewportH, setViewportH] = useState(0)
+  const [spreadW, setSpreadW] = useState(0)
   const lockUntilRef = useRef(0)
   const programmaticRef = useRef(false)
   const programmaticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -346,8 +357,7 @@ export function BookContent() {
         const el = contentRef.current
         const box = scrollRef.current
         if (!el || !box) return
-        const total = Math.max(1, Math.ceil(el.scrollHeight / Math.max(box.clientHeight, 1)))
-        setPageIndex(total - 1)
+        setPageIndex(computeSpreads(el, box, twoPage) - 1)
       })
       return
     }
@@ -360,7 +370,7 @@ export function BookContent() {
       el.scrollTop = el.scrollHeight
     })
     return () => cancelAnimationFrame(id)
-  }, [state, paged])
+  }, [state, paged, twoPage])
 
   useEffect(() => {
     const el = contentRef.current
@@ -369,7 +379,8 @@ export function BookContent() {
     const measure = (): void => {
       const height = box.clientHeight
       setViewportH(height)
-      const total = Math.max(1, Math.ceil(el.scrollHeight / Math.max(height, 1)))
+      setSpreadW(el.clientWidth + COLUMN_GAP)
+      const total = computeSpreads(el, box, paged && twoPage)
       setTotalScreens(total)
       setPageIndex((i) => Math.min(i, total - 1))
     }
@@ -377,7 +388,12 @@ export function BookContent() {
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     ro.observe(box)
-    return () => ro.disconnect()
+    const mo = new MutationObserver(measure)
+    mo.observe(el, { childList: true, subtree: true, characterData: true })
+    return () => {
+      ro.disconnect()
+      mo.disconnect()
+    }
   }, [state, paged, twoPage])
 
   useEffect(() => {
@@ -561,7 +577,7 @@ export function BookContent() {
         </Button>
         <span className="text-xs text-muted-foreground">
           {paged && !isPdf
-            ? `第 ${pageIndex + 1} / ${totalScreens} 屏`
+            ? `第 ${pageIndex + 1} / ${totalScreens} ${twoPage ? '跨页' : '屏'}`
             : isPdf
               ? `第 ${pdfPage} / ${totalPages || '?'} 页`
               : 'EPUB 无分页'}
@@ -662,7 +678,12 @@ export function BookContent() {
               )}
               style={
                 paged
-                  ? { transform: `translateY(-${pageIndex * viewportH}px)` }
+                  ? twoPage
+                    ? {
+                        height: viewportH ? `${viewportH}px` : undefined,
+                        transform: `translateX(-${pageIndex * spreadW}px)`,
+                      }
+                    : { transform: `translateY(-${pageIndex * viewportH}px)` }
                   : undefined
               }
             >
@@ -706,7 +727,7 @@ export function BookContent() {
       </div>
       {paged ? (
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          第 {pageIndex + 1} / {totalScreens} 屏 · 向下滚动或点「下一页」继续查看本章后续内容
+          第 {pageIndex + 1} / {totalScreens} {twoPage ? '跨页' : '屏'} · 向下滚动或点「下一页」继续查看本章后续内容
         </p>
       ) : null}
     </section>
