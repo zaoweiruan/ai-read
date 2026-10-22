@@ -11,6 +11,7 @@ import {
 } from '@/stores/reader-store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 type LoadState =
   | { status: 'idle' }
@@ -55,6 +56,7 @@ export function BookContent() {
   const bookData = useBookStore((s) => s.bookData)
   const chapters = useBookStore((s) => s.chapters)
   const activeChapterId = useBookStore((s) => s.activeChapterId)
+  const setActiveChapterId = useBookStore((s) => s.setActiveChapterId)
   const summary = useBookStore((s) => s.summary)
   const fontSize = useReaderStore((s) => s.fontSize)
   const lineHeight = useReaderStore((s) => s.lineHeight)
@@ -72,11 +74,86 @@ export function BookContent() {
   const setSummaryVisible = useReaderStore((s) => s.setSummaryVisible)
   const resetTypography = useReaderStore((s) => s.resetTypography)
   const [state, setState] = useState<LoadState>({ status: 'idle' })
+  const [pdfPage, setPdfPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [expanded, setExpanded] = useState(false)
   const cacheRef = useRef<Map<string, ContentBlock[]>>(new Map())
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const readerRef = useRef<HTMLElement | null>(null)
+  const pageNavRef = useRef(false)
 
   const activeChapter = chapters.find((c) => c.id === activeChapterId) ?? null
   const activeIndex = activeChapter ? chapters.indexOf(activeChapter) : -1
+  const isPdf = book?.format === 'pdf'
+
+  useEffect(() => {
+    const onChange = () => {
+      setExpanded(document.fullscreenElement === readerRef.current)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpanded(false)
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [])
+
+  async function toggleFullscreen() {
+    const el = readerRef.current
+    if (!el) return
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+      return
+    }
+    if (expanded) {
+      setExpanded(false)
+      return
+    }
+    if (typeof el.requestFullscreen !== 'function') {
+      setExpanded(true)
+      return
+    }
+    try {
+      await el.requestFullscreen()
+    } catch {
+      setExpanded(true)
+    }
+  }
+
+  function goToPage(page: number) {
+    if (!isPdf) return
+    pageNavRef.current = true
+    setPdfPage(page)
+    const target = chapters.find(
+      (c) => (c.startPage ?? 1) <= page && page <= (c.endPage ?? c.startPage ?? 1),
+    )
+    if (target && target.id !== activeChapterId) {
+      setActiveChapterId(target.id)
+    }
+  }
+
+  function goPrevChapter() {
+    if (activeIndex <= 0) return
+    setActiveChapterId(chapters[activeIndex - 1].id)
+  }
+
+  function goNextChapter() {
+    if (activeIndex < 0 || activeIndex >= chapters.length - 1) return
+    setActiveChapterId(chapters[activeIndex + 1].id)
+  }
+
+  useEffect(() => {
+    if (!isPdf) return
+    if (pageNavRef.current) {
+      pageNavRef.current = false
+      return
+    }
+    const target = chapters.find((c) => c.id === activeChapterId)
+    if (target?.startPage) setPdfPage(target.startPage)
+  }, [activeChapterId, chapters, isPdf])
   const chapterSummary = activeChapter
     ? summary?.chapterSummaries[activeChapter.id]
     : undefined
@@ -93,7 +170,8 @@ export function BookContent() {
       setState({ status: 'idle' })
       return
     }
-    const cached = cacheRef.current.get(activeChapter.id)
+    const cacheKey = isPdf ? `${activeChapter.id}:${pdfPage}` : activeChapter.id
+    const cached = cacheRef.current.get(cacheKey)
     if (cached !== undefined) {
       setState({ status: 'ready', blocks: cached })
       return
@@ -107,19 +185,14 @@ export function BookContent() {
           blocks = await getChapterBlocks(bookData, activeChapter)
         } else {
           const doc = await getPdfDocument(bookData)
-          const from = activeChapter.startPage ?? 1
-          const to = activeChapter.endPage ?? from
-          const parts: string[] = []
-          for (let page = from; page <= to; page += 1) {
-            parts.push(await getPageText(doc, page))
-          }
-          blocks = parts
-            .join('\n')
+          setTotalPages(doc.numPages)
+          const text = await getPageText(doc, pdfPage)
+          blocks = text
             .split(/\n{2,}/)
             .map((p) => p.trim())
             .filter((p) => p.length > 0)
         }
-        cacheRef.current.set(activeChapter.id, blocks)
+        cacheRef.current.set(cacheKey, blocks)
         if (!cancelled) setState({ status: 'ready', blocks })
       } catch (e) {
         if (!cancelled) {
@@ -133,7 +206,7 @@ export function BookContent() {
     return () => {
       cancelled = true
     }
-  }, [activeChapter, bookData, book])
+  }, [activeChapter, bookData, book, pdfPage])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 })
@@ -154,7 +227,13 @@ export function BookContent() {
   } as CSSProperties
 
   return (
-    <section className="flex h-full min-h-0 flex-col rounded-lg border border-border p-5">
+    <section
+      ref={readerRef}
+      className={cn(
+        'reader-shell flex h-full min-h-0 flex-col rounded-lg border border-border p-5',
+        expanded && 'is-expanded fixed inset-0 z-50 overflow-hidden bg-background',
+      )}
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="min-w-0 truncate text-lg font-semibold">
           {activeChapter?.title ?? '书籍内容'}
@@ -240,6 +319,75 @@ export function BookContent() {
           title="恢复默认排版"
         >
           重置
+        </Button>
+      </div>
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={goPrevChapter}
+          disabled={activeIndex <= 0}
+          title="上一章"
+        >
+          上一章
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={goNextChapter}
+          disabled={activeIndex < 0 || activeIndex >= chapters.length - 1}
+          title="下一章"
+        >
+          下一章
+        </Button>
+        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => goToPage(pdfPage - 1)}
+          disabled={!isPdf || pdfPage <= 1}
+          title={isPdf ? '上一页' : 'EPUB 无分页'}
+        >
+          上一页
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          {isPdf ? `第 ${pdfPage} / ${totalPages || '?'} 页` : 'EPUB 无分页'}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => goToPage(pdfPage + 1)}
+          disabled={!isPdf || (totalPages > 0 && pdfPage >= totalPages)}
+          title={isPdf ? '下一页' : 'EPUB 无分页'}
+        >
+          下一页
+        </Button>
+        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void toggleFullscreen()}
+          title={expanded ? '退出全屏' : '全屏显示阅读区'}
+          aria-label={expanded ? '退出全屏' : '全屏'}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            {expanded ? (
+              <path d="M6 2.5H2.5V6M10 2.5h3.5V6M6 13.5H2.5V10M10 13.5h3.5V10" />
+            ) : (
+              <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
+            )}
+          </svg>
+          {expanded ? '退出全屏' : '全屏'}
         </Button>
       </div>
       <div

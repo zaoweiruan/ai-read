@@ -20,7 +20,9 @@ interface OutlineItem {
 }
 
 export async function parsePdf(data: ArrayBuffer): Promise<ParsedPdf> {
-  const doc = await pdfjs.getDocument({ data }).promise
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(data.slice(0)),
+  }).promise
   const meta = await doc.getMetadata().catch(() => null)
 
   const info = meta?.info as { Title?: string; Author?: string } | undefined
@@ -94,6 +96,9 @@ export function getPdfDocument(
 ): Promise<pdfjs.PDFDocumentProxy> {
   if (cachedDoc && cachedData === data) return cachedDoc
   cachedData = data
+  if (data.byteLength === 0) {
+    return Promise.reject(new Error('PDF 数据已失效，请重新上传文件。'))
+  }
   cachedDoc = pdfjs.getDocument({ data: new Uint8Array(data.slice(0)) }).promise
   return cachedDoc
 }

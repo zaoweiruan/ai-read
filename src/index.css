@@ -71,3 +71,12 @@ body {
 .mm-result-dock.is-expanded .mm-shell {
   height: calc(100vh - 170px);
 }
+
+.reader-shell:fullscreen {
+  padding: 20px;
+  background: var(--background);
+}
+
+.reader-shell.is-expanded {
+  padding: 20px;
+}
