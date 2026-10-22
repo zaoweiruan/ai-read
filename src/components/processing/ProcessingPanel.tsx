@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { resolveProvider } from '@/services/ai';
 import type { AIProvider, ChatMessage, ChatOptions } from '@/services/ai/provider';
 import { chatJson } from '@/services/ai/chatJson';
@@ -189,6 +189,45 @@ export default function ProcessingPanel() {
   const setActiveMode = useBookStore((s) => s.setActiveMode);
 
   const abortRef = useRef<AbortController | null>(null);
+  const resultRef = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => {
+      setExpanded(document.fullscreenElement === resultRef.current);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpanded(false);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  async function toggleFullscreen() {
+    const el = resultRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    if (typeof el.requestFullscreen !== 'function') {
+      setExpanded(true);
+      return;
+    }
+    try {
+      await el.requestFullscreen();
+    } catch {
+      setExpanded(true);
+    }
+  }
 
   const selected = chapters.filter((c) => selectedChapterIds.includes(c.id));
   const provider = getActiveProvider();
@@ -538,7 +577,42 @@ export default function ProcessingPanel() {
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={resultRef}
+        className={cn(
+          'mm-result-dock min-h-0 flex-1 overflow-y-auto',
+          expanded &&
+            'is-expanded fixed inset-0 z-50 overflow-y-auto bg-background p-5',
+        )}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-end bg-background/90 py-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void toggleFullscreen()}
+            title={expanded ? '退出全屏' : '全屏显示结果'}
+            aria-label={expanded ? '退出全屏' : '全屏'}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {expanded ? (
+                <path d="M6 2.5H2.5V6M10 2.5h3.5V6M6 13.5H2.5V10M10 13.5h3.5V10" />
+              ) : (
+                <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
+              )}
+            </svg>
+            {expanded ? '退出全屏' : '全屏'}
+          </Button>
+        </div>
         <ResultView />
       </div>
 

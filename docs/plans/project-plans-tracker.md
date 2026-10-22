@@ -140,3 +140,11 @@
 - [x] 原「服务 / 高级选项」降级为底部可折叠配置组（默认折叠，折叠头显示当前服务名）
 - [x] 进度 / 暂停 / 错误行上移至 tab 正下方；面板外层 `overflow-hidden`，仅结果窗内部滚动
 - [x] 验收（2026-10-22 浏览器 E2E）：tablist y=471 → 结果窗 y=572（在其下方）、x=909 右栏内；配置组默认折叠（服务/子章节深度不可见）→ 展开可见 → 再折叠隐藏；跑「当前章节总结」后导读渲染于 `#app-result` 内（resultTop 572 ≥ tablistBottom 516）且配置组保持折叠；截图 right-column-result-dock
+
+## 阶段 12：结果窗口全屏按钮（2026-10-22，设计 `plans/2026-10-22-Design-Result-Fullscreen-v1.0.md`）
+
+- [x] 结果窗顶部 sticky 条 + 「全屏 / 退出全屏」按钮（图标随状态切换）
+- [x] 原生 Fullscreen API 优先，不可用/被拒时回退 CSS 覆盖层（`is-expanded`）；Esc 退出
+- [x] 同一 DOM 节点切换 → 思维导图实例不重建、结果不丢失
+- [x] `index.css`：全屏态铺满视口 + 导图高度 `calc(100vh - 170px)`
+- [x] 验收（2026-10-22 浏览器 E2E）：点击后容器成为 `document.fullscreenElement`（1280×720 = 视口）、按钮文案切为「退出全屏」、导读内容保留；再次点击恢复原位（319×407）且内容仍在；截图 result-fullscreen

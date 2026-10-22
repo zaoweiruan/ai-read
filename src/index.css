@@ -56,3 +56,13 @@ body {
 .mm-shell .me-tpc:hover {
   cursor: pointer;
 }
+
+.mm-result-dock:fullscreen {
+  padding: 20px;
+  background: var(--background);
+}
+
+.mm-result-dock:fullscreen .mm-shell,
+.mm-result-dock.is-expanded .mm-shell {
+  height: calc(100vh - 170px);
+}
