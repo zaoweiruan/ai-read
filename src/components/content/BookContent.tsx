@@ -450,7 +450,7 @@ export function BookContent() {
           </Badge>
         ) : null}
       </div>
-      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+      <div className="reader-toolbar mb-2 flex flex-wrap items-center gap-1">
         <Button
           size="sm"
           variant="outline"
@@ -549,8 +549,7 @@ export function BookContent() {
           </svg>
           {expanded ? '退出全屏' : '全屏'}
         </Button>
-      </div>
-      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
         <Button
           size="sm"
           variant="outline"

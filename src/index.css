@@ -85,3 +85,10 @@ body {
 .reader-shell.is-expanded {
   padding: 20px;
 }
+
+.reader-toolbar > button {
+  height: 1.75rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  font-size: 0.75rem;
+}
