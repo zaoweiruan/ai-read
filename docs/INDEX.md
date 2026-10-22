@@ -32,6 +32,7 @@
 - [2026-10-22 设计 阅读器图片 + 不自动全选 + 当前章节模式 v1.0](plans/2026-10-22-Design-Reader-Images-CurrentChapter-v1.0.md) — EPUB 内嵌图片解析与渲染（data/blob URL）、打开书籍不再全选章节、当前章模式只处理内容窗口显示的章节。
 - [2026-10-22 设计 阅读区全屏 + 页/章导航 v1.0](plans/2026-10-22-Design-Reader-Navigation-Fullscreen-v1.0.md) — 阅读区新增全屏开关、章导航、PDF 逐页阅读与页码指示；附带修复 PDF 数组缓冲被 pdfjs detach 导致正文空白。
 - [2026-10-22 设计 阅读区连续滚动 v1.0](plans/2026-10-22-Design-Reader-Continuous-Scroll-v1.0.md) — 滚到底自动进入下一章（连续阅读），「连续滚动」开关；附带修复 zustand store HMR 多实例与模块缓存陈旧两个 dev 基础问题。
+- [2026-10-22 设计 Markdown 文档支持 v1.0](plans/2026-10-22-Design-Markdown-Support-v1.0.md) — .md/.markdown 上传解析（front matter + H1/H2 切章）与阅读区 Markdown 渲染（标题/列表/代码块/表格/引用/行内样式）。
 
 ## 环境快照（build-env）
 

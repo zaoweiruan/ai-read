@@ -3,13 +3,19 @@ import { useBookStore } from '@/stores/book-store'
 import { Button } from '@/components/ui/button'
 import { parseEpub } from '@/services/epub'
 import { parsePdf } from '@/services/pdf'
+import { parseMarkdown } from '@/services/markdown'
 import type { BookFormat } from '@/types'
 
 function detectFormat(fileName: string): BookFormat | null {
   const lower = fileName.toLowerCase()
   if (lower.endsWith('.epub')) return 'epub'
   if (lower.endsWith('.pdf')) return 'pdf'
+  if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'markdown'
   return null
+}
+
+function hasCover(parsed: unknown): parsed is { cover?: string } {
+  return typeof parsed === 'object' && parsed !== null && 'cover' in parsed
 }
 
 export function BookUploader() {
@@ -25,7 +31,7 @@ export function BookUploader() {
   async function handleFile(file: File) {
     const format = detectFormat(file.name)
     if (!format) {
-      setError('仅支持 .epub 或 .pdf 文件')
+      setError('仅支持 .epub、.pdf 或 .md 文件')
       return
     }
     setBusy(true)
@@ -33,14 +39,19 @@ export function BookUploader() {
     reset()
     try {
       const data = await file.arrayBuffer()
-      const parsed = format === 'epub' ? await parseEpub(data) : await parsePdf(data)
+      const parsed =
+        format === 'epub'
+          ? await parseEpub(data)
+          : format === 'pdf'
+            ? await parsePdf(data)
+            : await parseMarkdown(data, file.name.replace(/\.(md|markdown)$/i, ''))
       setBook({
         id: Math.random().toString(36).slice(2, 10),
         fileName: file.name,
         format,
         title: parsed.title ?? undefined,
         author: parsed.author ?? undefined,
-        cover: 'cover' in parsed ? parsed.cover : undefined,
+        cover: hasCover(parsed) ? parsed.cover : undefined,
       })
       setBookData(data.slice(0))
       setChapters(parsed.chapters)
@@ -62,14 +73,14 @@ export function BookUploader() {
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold">上传电子书</h2>
         <p className="text-sm text-muted-foreground">
-          支持 EPUB 与 PDF 格式，解析在本地完成后按需发送给 AI 服务。
+          支持 EPUB、PDF 与 Markdown 格式，解析在本地完成后按需发送给 AI 服务。
         </p>
       </div>
 
       <input
         ref={inputRef}
         type="file"
-        accept=".epub,.pdf"
+        accept=".epub,.pdf,.md,.markdown"
         className="hidden"
         onChange={onInputChange}
       />

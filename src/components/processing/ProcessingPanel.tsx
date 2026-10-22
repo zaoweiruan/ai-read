@@ -244,6 +244,9 @@ export default function ProcessingPanel() {
   async function buildContent(chapterId: string): Promise<string> {
     const chapter = chapters.find((c) => c.id === chapterId);
     if (!chapter || !bookData) return '';
+    if (book?.format === 'markdown') {
+      return chapter.content ?? '';
+    }
     if (book?.format === 'epub') {
       return getChapterContent(bookData, chapter).catch((e: unknown) => {
         console.warn('章节正文加载失败', chapter.title, e);

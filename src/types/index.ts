@@ -1,4 +1,4 @@
-export type BookFormat = 'epub' | 'pdf'
+export type BookFormat = 'epub' | 'pdf' | 'markdown'
 
 export type ProcessingMode = 'summary' | 'chapter-mindmap' | 'book-mindmap'
 
@@ -40,6 +40,10 @@ export type ContentBlock =
       kind: 'image'
       src: string
       alt: string
+    }
+  | {
+      kind: 'markdown'
+      text: string
     }
 
 export interface ChapterSummaryCard {

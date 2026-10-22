@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, WheelEvent as ReactWheelEvent } from 'react'
 import { getChapterBlocks } from '@/services/epub'
+import { getMarkdownBlocks } from '@/services/markdown'
 import { getPageText, getPdfDocument } from '@/services/pdf'
+import { renderMarkdown } from '@/lib/markdown'
 import { useBookStore } from '@/stores/book-store'
 import type { ContentBlock } from '@/types'
 import {
@@ -243,6 +245,8 @@ export function BookContent() {
         let blocks: ContentBlock[] = []
         if (book.format === 'epub') {
           blocks = await getChapterBlocks(bookData, activeChapter)
+        } else if (book.format === 'markdown') {
+          blocks = getMarkdownBlocks(activeChapter.content ?? '')
         } else {
           const doc = await getPdfDocument(bookData)
           setTotalPages(doc.numPages)
@@ -491,6 +495,10 @@ export function BookContent() {
                   <p key={i} className="reader-para whitespace-pre-wrap">
                     {block}
                   </p>
+                ) : block.kind === 'markdown' ? (
+                  <div key={`md-${i}`} className="markdown-body">
+                    {renderMarkdown(block.text)}
+                  </div>
                 ) : (
                   <figure key={`img-${i}`} className="my-3 flex flex-col items-center">
                     <img
