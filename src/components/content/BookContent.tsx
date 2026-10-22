@@ -82,6 +82,7 @@ export function BookContent() {
   const programmaticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastTopRef = useRef(0)
   const dirRef = useRef(0)
+  const pendingBottomRef = useRef(false)
 
   function lockScroll(ms: number) {
     lockUntilRef.current = Date.now() + ms
@@ -106,6 +107,7 @@ export function BookContent() {
 
   useEffect(() => {
     setLocalChapterId(null)
+    pendingBottomRef.current = false
   }, [chapterRequest])
 
   useEffect(() => {
@@ -161,6 +163,7 @@ export function BookContent() {
     if (activeIndex < 0 || activeIndex >= chapters.length - 1) return
     lockScroll(1200)
     markProgrammaticScroll(2500)
+    pendingBottomRef.current = false
     const target = chapters[activeIndex + 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -170,6 +173,7 @@ export function BookContent() {
     if (activeIndex <= 0) return
     lockScroll(1200)
     markProgrammaticScroll(2500)
+    pendingBottomRef.current = true
     const target = chapters[activeIndex - 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -275,6 +279,15 @@ export function BookContent() {
   useEffect(() => {
     if (state.status !== 'ready') return
     markProgrammaticScroll(800)
+    if (!pendingBottomRef.current) return
+    pendingBottomRef.current = false
+    const el = scrollRef.current
+    if (!el) return
+    markProgrammaticScroll(2000)
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+    return () => cancelAnimationFrame(id)
   }, [state])
 
   useEffect(() => {
