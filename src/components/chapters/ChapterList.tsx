@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useBookStore } from '@/stores/book-store'
+import { useReaderStore } from '@/stores/reader-store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
@@ -11,6 +12,7 @@ export function ChapterList() {
   const selectedChapterIds = useBookStore((s) => s.selectedChapterIds)
   const activeChapterId = useBookStore((s) => s.activeChapterId)
   const requestChapter = useBookStore((s) => s.requestChapter)
+  const setOutlineVisible = useReaderStore((s) => s.setOutlineVisible)
   const groups = useBookStore((s) => s.groups)
   const toggleChapter = useBookStore((s) => s.toggleChapter)
   const selectAllChapters = useBookStore((s) => s.selectAllChapters)
@@ -63,6 +65,15 @@ export function ChapterList() {
             onClick={() => setGroupOpen(true)}
           >
             分组 (Ctrl+G)
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setOutlineVisible(false)}
+            title="折叠章节列"
+            aria-label="折叠章节列"
+          >
+            «
           </Button>
         </div>
       </div>

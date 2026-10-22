@@ -187,3 +187,10 @@
 - [x] `src/lib/markdown.tsx` 新增 `renderMarkdown`：标题 / 围栏代码块 / GFM 表格 / 引用 / 有序无序列表 / 分隔线 / 段落 + 行内（粗体、斜体、代码、删除线、链接、图片、自动链接）
 - [x] 接入：上传（accept `.md/.markdown` + 解析分发 + 文案）、阅读区 markdown 块渲染、AI 取材（`buildContent` 返回章节原文）
 - [x] 验收（2026-10-22 浏览器 E2E，样本 `test/sample.md`）：章节列 4 节（H1+3×H2）✓；第一章 列表 2/条目 6/链接 1/删除线 1 ✓；第二章 代码块 1/表格 1/引用 1/分隔线 1/行内代码 1 ✓；短章节滚轮续读 第一章⇒第二章 ✓；「当前章节总结」以 Markdown 正文生成导读、无报错 ✓
+
+## 阶段 17：恢复章节列折叠 + 移除封面框（2026-10-22，设计 `plans/2026-10-22-Design-Outline-Restore-Cover-Remove-v1.0.md`）
+
+- [x] `reader-store` 恢复 `outlineVisible` / `setOutlineVisible`（持久化）
+- [x] `ChapterList` 恢复「«」折叠按钮；`App` 恢复两态 grid 与 40px「章节」导轨（点击再展开）
+- [x] `BookUploader` 移除封面图片框（解析与字段保留，不展示）
+- [x] 验收（2026-10-22 浏览器 E2E）：折叠按钮存在 ✓ → 折叠后 grid 变为 40px 且导轨可见 ✓ → 点击导轨恢复三栏、章节列可见 ✓；页面封面图数量 0 ✓

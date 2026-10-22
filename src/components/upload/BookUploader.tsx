@@ -97,10 +97,6 @@ export function BookUploader() {
         ) : null}
       </div>
 
-      {book?.cover ? (
-        <img src={book.cover} alt="封面" className="h-40 w-auto rounded-md border" />
-      ) : null}
-
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </section>
   )
