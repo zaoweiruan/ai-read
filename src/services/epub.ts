@@ -1,5 +1,5 @@
 import ePub from 'epubjs'
-import type { Chapter } from '@/types'
+import type { Chapter, ContentBlock } from '@/types'
 
 export interface ParsedEpub {
   title?: string
@@ -140,6 +140,13 @@ const CONTAINER_TAGS = new Set([
   'aside',
 ])
 
+interface RawImage {
+  src: string
+  alt: string
+}
+
+type RawBlock = { type: 'text'; value: string } | { type: 'image'; image: RawImage }
+
 function normalizeInline(parts: string[]): string {
   return parts.join(' ').replace(/\s+/g, ' ').trim()
 }
@@ -176,12 +183,23 @@ function hasBlockDescendant(el: Element): boolean {
   return false
 }
 
-function extractBlocks(root: Node): string[] {
-  const blocks: string[] = []
+function hasImageDescendant(el: Element): boolean {
+  const stack: Element[] = [...el.children]
+  while (stack.length > 0) {
+    const child = stack.pop()
+    if (!child) break
+    if (child.tagName.toLowerCase() === 'img') return true
+    stack.push(...child.children)
+  }
+  return false
+}
+
+function extractRawBlocks(root: Node, images: RawImage[]): RawBlock[] {
+  const blocks: RawBlock[] = []
   let current: string[] = []
   const flush = (): void => {
     const text = normalizeInline(current)
-    if (text) blocks.push(text)
+    if (text) blocks.push({ type: 'text', value: text })
     current = []
   }
   const walk = (node: Node): void => {
@@ -195,19 +213,38 @@ function extractBlocks(root: Node): string[] {
     const el = node
     const tag = el.tagName.toLowerCase()
     if (tag === 'script' || tag === 'style' || tag === 'head' || tag === 'nav') return
+    if (tag === 'img') {
+      flush()
+      const image: RawImage = {
+        src: el.getAttribute('src') ?? '',
+        alt: el.getAttribute('alt') ?? '',
+      }
+      images.push(image)
+      blocks.push({ type: 'image', image })
+      return
+    }
     if (BLOCK_TAGS.has(tag)) {
+      if (hasImageDescendant(el)) {
+        const children = node.childNodes
+        for (let i = 0; i < children.length; i += 1) walk(children[i])
+        return
+      }
       flush()
       const text = inlineText(el)
-      if (text) blocks.push(text)
+      if (text) blocks.push({ type: 'text', value: text })
       return
     }
-    if (CONTAINER_TAGS.has(tag) && !hasBlockDescendant(el)) {
+    if (
+      CONTAINER_TAGS.has(tag) &&
+      !hasBlockDescendant(el) &&
+      !hasImageDescendant(el)
+    ) {
       flush()
       const text = inlineText(el)
-      if (text) blocks.push(text)
+      if (text) blocks.push({ type: 'text', value: text })
       return
     }
-    const children = el.childNodes
+    const children = node.childNodes
     for (let i = 0; i < children.length; i += 1) walk(children[i])
   }
   walk(root)
@@ -215,50 +252,117 @@ function extractBlocks(root: Node): string[] {
   return blocks
 }
 
-function extractText(doc: unknown): string {
-  if (typeof doc === 'string') {
-    const div = document.createElement('div')
-    div.innerHTML = doc
-    return extractBlocks(div).join('\n\n')
+async function resolveImageUrl(
+  book: EpubBook,
+  chapterPath: string,
+  src: string,
+): Promise<string | null> {
+  if (!src) return null
+  if (/^(data:|https?:|blob:)/i.test(src)) return src
+  const dir = chapterPath.includes('/')
+    ? chapterPath.slice(0, chapterPath.lastIndexOf('/'))
+    : ''
+  const joined = dir ? `${dir}/${src}` : src
+  const normalized = normalizePath(joined)
+  if (!normalized) return null
+  const rootPath = `/${normalized}`
+  const candidates: string[] = [rootPath]
+  const manifest = book.packaging?.manifest
+  if (manifest) {
+    const items = Object.values(manifest)
+    const exact = items.find((item) => {
+      if (!item.href) return false
+      try {
+        return book.resolve(item.href) === rootPath
+      } catch {
+        return false
+      }
+    })
+    if (exact?.href) {
+      try {
+        candidates.unshift(book.resolve(exact.href))
+      } catch {
+        // 保留根路径候选
+      }
+    }
+    const byName = items.filter(
+      (item) => item.href && basename(item.href) === basename(normalized),
+    )
+    if (byName.length === 1 && byName[0].href) {
+      try {
+        candidates.push(book.resolve(byName[0].href))
+      } catch {
+        // 忽略无法解析的候选
+      }
+    }
   }
-  const d = doc as {
-    body?: Node | null
-    documentElement?: Node | null
-    textContent?: string | null
-  } | null
-  if (!d) return ''
-  for (const root of [d.body, d.documentElement]) {
-    if (!root) continue
-    const blocks = extractBlocks(root)
-    if (blocks.length > 0) return blocks.join('\n\n')
+  for (const path of candidates) {
+    try {
+      const url = await book.archive.createUrl(path, { base64: true })
+      if (url) return url
+    } catch {
+      continue
+    }
   }
-  if (typeof d.textContent === 'string') {
-    return normalizeInline([d.textContent])
+  return null
+}
+
+export async function getChapterBlocks(
+  data: ArrayBuffer,
+  chapter: Chapter,
+): Promise<ContentBlock[]> {
+  if (!chapter.href) return []
+  const book = await openBook(data)
+  const href = resolveContentHref(book, chapter.href)
+  let chapterPath = `/${normalizePath(href)}`
+  try {
+    chapterPath = book.resolve(href)
+  } catch {
+    chapterPath = `/${normalizePath(href)}`
   }
-  return ''
+  const images: RawImage[] = []
+  let raw: RawBlock[] = []
+  try {
+    const doc = await book.load(href)
+    raw = extractRawBlocks(doc as unknown as Node, images)
+  } catch {
+    raw = []
+  }
+  if (raw.length === 0) {
+    try {
+      const rawText = await book.archive.getText(chapterPath)
+      if (typeof rawText === 'string') {
+        const div = document.createElement('div')
+        div.innerHTML = rawText
+        raw = extractRawBlocks(div, images)
+      }
+    } catch {
+      raw = []
+    }
+  }
+  const blocks: ContentBlock[] = []
+  for (const block of raw) {
+    if (block.type === 'text') {
+      blocks.push(block.value)
+      continue
+    }
+    const url = await resolveImageUrl(book, chapterPath, block.image.src)
+    if (url) {
+      blocks.push({ kind: 'image', src: url, alt: block.image.alt })
+    } else {
+      console.warn('[epub] 图片资源解析失败', block.image.src, chapterPath)
+    }
+  }
+  return blocks
 }
 
 export async function getChapterContent(
   data: ArrayBuffer,
   chapter: Chapter,
 ): Promise<string> {
-  if (!chapter.href) return ''
-  const book = await openBook(data)
-  const href = resolveContentHref(book, chapter.href)
-  let text = ''
-  try {
-    const doc = await book.load(href)
-    text = extractText(doc)
-  } catch {
-    text = ''
-  }
-  if (!text) {
-    try {
-      const raw = await book.archive.getText(book.resolve(href))
-      if (typeof raw === 'string') text = extractText(raw)
-    } catch {
-      text = ''
-    }
-  }
-  return text
+  const blocks = await getChapterBlocks(data, chapter)
+  return blocks
+    .map((block) => (typeof block === 'string' ? block : ''))
+    .filter(Boolean)
+    .join('\n\n')
 }

@@ -89,7 +89,7 @@ export const useBookStore = create<BookState>()(
       setChapters: (chapters) =>
         set({
           chapters,
-          selectedChapterIds: chapters.map((c) => c.id),
+          selectedChapterIds: [],
           activeChapterId: chapters[0]?.id ?? null,
           summary: null,
           mindMap: null,

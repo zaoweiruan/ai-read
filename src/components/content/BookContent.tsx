@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { getChapterContent } from '@/services/epub'
+import { getChapterBlocks } from '@/services/epub'
 import { getPageText, getPdfDocument } from '@/services/pdf'
 import { useBookStore } from '@/stores/book-store'
+import type { ContentBlock } from '@/types'
 import {
   useReaderStore,
   type ReaderFontFamily,
@@ -15,7 +16,7 @@ type LoadState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; text: string };
+  | { status: 'ready'; blocks: ContentBlock[] };
 
 const LINE_HEIGHTS = [1.6, 1.9, 2.2]
 const LETTER_SPACINGS = [0, 0.02, 0.05]
@@ -71,7 +72,7 @@ export function BookContent() {
   const setSummaryVisible = useReaderStore((s) => s.setSummaryVisible)
   const resetTypography = useReaderStore((s) => s.resetTypography)
   const [state, setState] = useState<LoadState>({ status: 'idle' })
-  const cacheRef = useRef<Map<string, string>>(new Map())
+  const cacheRef = useRef<Map<string, ContentBlock[]>>(new Map())
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   const activeChapter = chapters.find((c) => c.id === activeChapterId) ?? null
@@ -84,22 +85,26 @@ export function BookContent() {
     : undefined
 
   useEffect(() => {
+    cacheRef.current.clear()
+  }, [bookData])
+
+  useEffect(() => {
     if (!activeChapter || !bookData || !book) {
       setState({ status: 'idle' })
       return
     }
     const cached = cacheRef.current.get(activeChapter.id)
     if (cached !== undefined) {
-      setState({ status: 'ready', text: cached })
+      setState({ status: 'ready', blocks: cached })
       return
     }
     let cancelled = false
     setState({ status: 'loading' })
     ;(async () => {
       try {
-        let text = ''
+        let blocks: ContentBlock[] = []
         if (book.format === 'epub') {
-          text = await getChapterContent(bookData, activeChapter)
+          blocks = await getChapterBlocks(bookData, activeChapter)
         } else {
           const doc = await getPdfDocument(bookData)
           const from = activeChapter.startPage ?? 1
@@ -108,10 +113,14 @@ export function BookContent() {
           for (let page = from; page <= to; page += 1) {
             parts.push(await getPageText(doc, page))
           }
-          text = parts.join('\n')
+          blocks = parts
+            .join('\n')
+            .split(/\n{2,}/)
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0)
         }
-        cacheRef.current.set(activeChapter.id, text)
-        if (!cancelled) setState({ status: 'ready', text })
+        cacheRef.current.set(activeChapter.id, blocks)
+        if (!cancelled) setState({ status: 'ready', blocks })
       } catch (e) {
         if (!cancelled) {
           setState({
@@ -132,10 +141,7 @@ export function BookContent() {
 
   const paragraphs = useMemo(() => {
     if (state.status !== 'ready') return []
-    return state.text
-      .split(/\n{2,}/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 0)
+    return state.blocks
   }, [state])
 
   const readerStyle = {
@@ -302,11 +308,27 @@ export function BookContent() {
         {state.status === 'ready' ? (
           paragraphs.length > 0 ? (
             <div>
-              {paragraphs.map((p, i) => (
-                <p key={i} className="reader-para whitespace-pre-wrap">
-                  {p}
-                </p>
-              ))}
+              {paragraphs.map((block, i) =>
+                typeof block === 'string' ? (
+                  <p key={i} className="reader-para whitespace-pre-wrap">
+                    {block}
+                  </p>
+                ) : (
+                  <figure key={`img-${i}`} className="my-3 flex flex-col items-center">
+                    <img
+                      src={block.src}
+                      alt={block.alt}
+                      loading="lazy"
+                      className="max-h-[70vh] w-auto max-w-full rounded-md"
+                    />
+                    {block.alt ? (
+                      <figcaption className="mt-1 text-xs opacity-70">
+                        {block.alt}
+                      </figcaption>
+                    ) : null}
+                  </figure>
+                ),
+              )}
             </div>
           ) : (
             <p className="text-sm opacity-70">

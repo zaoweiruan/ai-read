@@ -29,6 +29,7 @@
 - [2026-10-22 设计 思维导图居中与小地图拖拽 v1.0](plans/2026-10-22-Design-MindMap-Center-MiniDrag-v1.0.md) — 新增居中按钮（`toCenter` 不改缩放）、小地图视口框按真实可见区计算并支持跟手拖拽、viewBox 稳定化、导图来源徽标（整书/章节）。
 - [2026-10-22 设计 右栏重排（结果窗上移 + 配置组折叠）v1.0](plans/2026-10-22-Design-RightColumn-Layout-v1.0.md) — ResultView 内嵌处理面板置于 tab 下方；原「服务 / 高级选项」降级为底部可折叠配置组；进度行上移。
 - [2026-10-22 设计 结果窗口全屏按钮 v1.0](plans/2026-10-22-Design-Result-Fullscreen-v1.0.md) — 结果窗常驻「全屏 / 退出全屏」按钮，优先原生 Fullscreen API、失败回退 CSS 覆盖层；同一 DOM 切换，导图实例不重建。
+- [2026-10-22 设计 阅读器图片 + 不自动全选 + 当前章节模式 v1.0](plans/2026-10-22-Design-Reader-Images-CurrentChapter-v1.0.md) — EPUB 内嵌图片解析与渲染（data/blob URL）、打开书籍不再全选章节、当前章模式只处理内容窗口显示的章节。
 
 ## 环境快照（build-env）
 

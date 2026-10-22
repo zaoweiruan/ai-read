@@ -122,7 +122,13 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
     <div className="space-y-4">
       <div className="rounded-lg border border-border p-4">
         <div className="mb-1 flex items-center gap-2">
-          <h3 className="font-semibold">{result.guide ? '全书导读' : '全书总结'}</h3>
+          <h3 className="font-semibold">
+            {result.guide
+              ? Object.keys(result.chapterSummaries).length === 1
+                ? '本章导读'
+                : '全书导读'
+              : '全书总结'}
+          </h3>
           <Badge>{result.guide ? 'guide' : 'book'}</Badge>
         </div>
         {result.guide ? (
@@ -133,13 +139,15 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
           <p className="whitespace-pre-wrap text-sm">{result.bookSummary}</p>
         )}
       </div>
-      <div className="rounded-lg border border-border p-4">
-        <div className="mb-1 flex items-center gap-2">
-          <h3 className="font-semibold">章节关系</h3>
-          <Badge>relations</Badge>
+      {result.chapterRelations.trim() ? (
+        <div className="rounded-lg border border-border p-4">
+          <div className="mb-1 flex items-center gap-2">
+            <h3 className="font-semibold">章节关系</h3>
+            <Badge>relations</Badge>
+          </div>
+          <p className="whitespace-pre-wrap text-sm">{result.chapterRelations}</p>
         </div>
-        <p className="whitespace-pre-wrap text-sm">{result.chapterRelations}</p>
-      </div>
+      ) : null}
       <div className="rounded-lg border border-border">
         <div className="border-b border-border px-4 py-2">
           <h3 className="font-semibold">

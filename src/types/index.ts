@@ -34,6 +34,14 @@ export interface AdvancedOptions {
   subchapterDepth: number
 }
 
+export type ContentBlock =
+  | string
+  | {
+      kind: 'image'
+      src: string
+      alt: string
+    }
+
 export interface ChapterSummaryCard {
   chapterId: string
   chapterTitle: string

@@ -16,6 +16,7 @@ import { usePromptStore } from '@/stores/prompt-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import type {
   AdvancedOptions,
+  Chapter,
   ChapterSummaryCard,
   MindMapNode,
   ProcessingMode,
@@ -166,6 +167,7 @@ export default function ProcessingPanel() {
   const bookData = useBookStore((s) => s.bookData);
   const chapters = useBookStore((s) => s.chapters);
   const selectedChapterIds = useBookStore((s) => s.selectedChapterIds);
+  const activeChapterId = useBookStore((s) => s.activeChapterId);
   const progress = useBookStore((s) => s.progress);
   const setProgress = useBookStore((s) => s.setProgress);
   const setSummary = useBookStore((s) => s.setSummary);
@@ -230,6 +232,13 @@ export default function ProcessingPanel() {
   }
 
   const selected = chapters.filter((c) => selectedChapterIds.includes(c.id));
+  const activeChapter = chapters.find((c) => c.id === activeChapterId) ?? null;
+  const targetsFor = (target: ProcessingMode): Chapter[] => {
+    if (target === 'book-mindmap') {
+      return selected.length > 0 ? selected : chapters;
+    }
+    return activeChapter ? [activeChapter] : [];
+  };
   const provider = getActiveProvider();
 
   async function buildContent(chapterId: string): Promise<string> {
@@ -253,6 +262,7 @@ export default function ProcessingPanel() {
 
   async function run(modeOverride?: ProcessingMode) {
     const effectiveMode = modeOverride ?? activeMode;
+    const selected = targetsFor(effectiveMode);
     setError('');
     if (!isConfigured() || !provider) {
       setError('请先在「配置」中完成 AI 服务设置。');
@@ -263,7 +273,11 @@ export default function ProcessingPanel() {
       return;
     }
     if (selected.length === 0) {
-      setError('请先选择至少一个章节。');
+      setError(
+        effectiveMode === 'book-mindmap'
+          ? '没有可处理的章节。'
+          : '请先在左侧打开一个章节，再运行「当前章节」模式。',
+      );
       return;
     }
     const activePrompt = prompts.find((p) => p.id === activePromptId);
@@ -340,25 +354,31 @@ export default function ProcessingPanel() {
         }
         setProgress({
           completed: selected.length,
-          currentStep: '生成章节关系与全书导读',
+          currentStep:
+            selected.length > 1 ? '生成章节关系与全书导读' : '生成本章导读',
           status: 'running',
         });
         const digest = selected
           .map((c) => `- ${c.title}：${chapterSummaries[c.id] ?? ''}`)
           .join('\n');
-        const relations = await ai.chat(
-          [
-            {
-              role: 'system' as const,
-              content: '你是电子书结构分析助手，只输出章节关系的中文要点列表（markdown 列表）。',
-            },
-            {
-              role: 'user' as const,
-              content: `请概括以下章节之间的关系（承接、对比、递进等），只输出 markdown 列表：\n${digest}`,
-            },
-          ],
-          { signal: controller.signal },
-        );
+        let relations = '';
+        if (selected.length > 1) {
+          relations = (
+            await ai.chat(
+              [
+                {
+                  role: 'system' as const,
+                  content: '你是电子书结构分析助手，只输出章节关系的中文要点列表（markdown 列表）。',
+                },
+                {
+                  role: 'user' as const,
+                  content: `请概括以下章节之间的关系（承接、对比、递进等），只输出 markdown 列表：\n${digest}`,
+                },
+              ],
+              { signal: controller.signal },
+            )
+          ).trim();
+        }
         const guide = await ai.chat(
           [
             systemMessage,
@@ -375,7 +395,7 @@ export default function ProcessingPanel() {
         const guideText = guide.trim();
         setSummary({
           chapterSummaries,
-          chapterRelations: relations.trim(),
+          chapterRelations: relations,
           bookSummary: guideText,
           guide: guideText,
           cards,
@@ -519,7 +539,7 @@ export default function ProcessingPanel() {
       <div className="flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-semibold">处理</h2>
         <div className="flex items-center gap-1.5">
-          <Badge>{selected.length} 章</Badge>
+          <Badge>{chapters.length} 章</Badge>
           <Badge>{book?.format.toUpperCase() ?? ''}</Badge>
         </div>
       </div>
@@ -567,7 +587,11 @@ export default function ProcessingPanel() {
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            已选 {selected.length} 章 · 点击上方标签页立即处理
+            {activeMode === 'book-mindmap'
+              ? `整书 · ${selected.length > 0 ? selected.length : chapters.length} 章 · 点击上方标签页立即处理`
+              : activeChapter
+                ? `当前章节：${activeChapter.title} · 点击上方标签页立即处理`
+                : '请先在左侧打开一个章节 · 点击上方标签页立即处理'}
           </p>
         )}
         <Progress value={percent} />

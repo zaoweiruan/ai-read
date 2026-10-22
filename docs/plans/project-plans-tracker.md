@@ -149,3 +149,12 @@
 - [x] `index.css`：全屏态铺满视口 + 导图高度 `calc(100vh - 170px)`
 - [x] 验收（2026-10-22 浏览器 E2E）：点击后容器成为 `document.fullscreenElement`（1280×720 = 视口）、按钮文案切为「退出全屏」、导读内容保留；再次点击恢复原位（319×407）且内容仍在；截图 result-fullscreen
 - [x] 修正：全屏背景变量写错（`--background` 未定义 → 元素透明 → 透出 Chromium 黑色 backdrop）；改用 `--color-background` / `--color-foreground` 并给 `::backdrop` 着色，实测全屏背景 `oklch(1 0 0)`、文字 `oklch(0.145 0 0)`；截图 result-fullscreen-fixed-bg
+
+## 阶段 13：阅读器图片 + 不自动全选 + 当前章节模式（2026-10-22，设计 `plans/2026-10-22-Design-Reader-Images-CurrentChapter-v1.0.md`）
+
+- [x] `ContentBlock` 内容模型（文本块 + 图片块）；`epub.ts` 块提取识别 `img`（含 `<p>` 内嵌图片）与相对路径资源解析（`book.resolve` + `archive.createUrl`）
+- [x] `BookContent` 按块渲染：文本段落 + `<figure><img loading="lazy">`；修复块缓存跨重新上传未失效
+- [x] 打开书籍不再自动全选章节（徽标 `0 / N`）
+- [x] 模式 → 处理目标：当前章节总结 / 当前章节思维导图 = 内容窗口当前章节；整书思维导图 = 勾选章节（未勾选按全书）；单章不生成章节关系、导读标题为「本章导读」
+- [x] 关键修复：XHTML 以 XML 解析（默认命名空间）→ `querySelector('img')` 命名空间敏感永远失配 → 改为 tagName 遍历
+- [x] 验收（2026-10-22 浏览器 E2E）：批评与真实 版权页图片 naturalWidth 543×85 ✓；一神论的影子 第 8 章图片滚入视口后 complete=true / 28×31 ✓；徽标 `0 / 13` ✓；提示「当前章节：第五封信 文化的边界」✓；本章导读 ✓、章节关系已隐藏 ✓
