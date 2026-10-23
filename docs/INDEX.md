@@ -16,6 +16,7 @@
 
 - [2026-10-19 诊断 AI 请求 Failed to fetch v1.0](bugfix/2026-10-19-Bugfix-AI-Provider-CORS-v1.0.md) — Kilo 网关端点不支持浏览器 CORS 导致 fetch 网络层拦截；附端点探测矩阵与解决方案。
 - [2026-10-21 修复 处理面板 tab 消失 v1.0](bugfix/2026-10-21-Bugfix-ProcessingPanel-Tab-Disappear-v1.0.md) — 根因：Vite 监听 `docs/**` 变更触发整页 reload 清空内存态 + AI 请求无超时导致 tab 永久禁用 + 完成后自动滚动推离 tab；修复含 watcher ignore、60s 看门狗、移除自动滚动。
+- [2026-10-23 修复 注释图标渲染过大 v1.0](bugfix/2026-10-23-Bugfix-Reader-Annotation-Icon-v1.0.md) — 根因：EPUB 小图注释图标「注」限于 min(自然宽,1.5em) 仍大于正文字符，且图片容器 `my-3` 居中打断 `text-indent:2em` 段落流；修复为 cap 1em + max-height 1.3em + contain 垂直基线内嵌，去图题/圆角，容器改 `my-0.5 pl-[2em]`。
 
 ## 设计 / 分析 / 参考（按需登记）
 
@@ -35,6 +36,8 @@
 - [2026-10-22 设计 Markdown 文档支持 v1.0](plans/2026-10-22-Design-Markdown-Support-v1.0.md) — .md/.markdown 上传解析（front matter + H1/H2 切章）与阅读区 Markdown 渲染（标题/列表/代码块/表格/引用/行内样式）。
 - [2026-10-22 设计 恢复章节列折叠 + 移除封面框 v1.0](plans/2026-10-22-Design-Outline-Restore-Cover-Remove-v1.0.md) — 找回章节列「«」折叠与 40px 导轨再展开；上传区不再展示封面图。
 - [2026-10-22 设计 阅读区：图标缩放 · AI 面板折叠 · 双页并列 · 换页方式 v1.0](plans/2026-10-22-Design-Reader-PageModes-v1.0.md) — 小图标按 min(自然宽,1.5em) 收敛；处理面板可折叠为 40px 导轨；双页并列（PDF 两页 / 正文双栏）；换页方式「连续 / 切换」整屏翻页。
+- [2026-10-23 设计 打开即显示正文 + 阅读进度恢复 v1.0](plans/2026-10-23-Design-Reader-OpenResume-v1.0.md) — 修复换书后 `localChapterId` 脏 id 导致占位文案（打开即显示第一页）；新增 reading-position-store 按 `文件名:大小` 持久化章 + 屏内位置（scrollRatio/pageIndex/pdfPage，LRU 20 本），重传同文件恢复上次阅读位置。
+- [2026-10-23 计划 打开即显示正文 + 阅读进度恢复 v1.0](plans/2026-10-23-Plan-Reader-OpenResume-v1.0.md) — 实现计划：U1 章解析脏 id 修复 → U2 位置存储 → U3 保存接线 → U4 恢复流程（一次性 pending + 滚顶冲突处理）→ U5 全量验收。
 
 ## 环境快照（build-env）
 

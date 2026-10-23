@@ -152,7 +152,7 @@ function withTimeout(ai: AIProvider): AIProvider {
         return await ai.chat(messages, { ...options, signal: ac.signal });
       } catch (e) {
         if (e instanceof DOMException && e.name === 'TimeoutError') {
-          throw new Error('AI 请求超时（60 秒）：服务响应过慢，请稍后重试。');
+          throw new Error('AI 请求超时（60 秒）：服务响应过慢，请稍后重试。', { cause: e });
         }
         throw e;
       } finally {

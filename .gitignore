@@ -31,6 +31,6 @@ token*
 apiKey*
 access_key*
 
-# 系统文件
-.DS_Store
-Thumbs.db
+# 会话导出（本地调试产物，不入库）
+session-*.md
+session-*.json

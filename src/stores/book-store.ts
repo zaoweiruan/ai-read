@@ -7,6 +7,7 @@ import type {
   MindMapResult,
   ProcessingMode,
   ProcessingProgress,
+  ReadingRestore,
   SummaryResult,
 } from '@/types'
 
@@ -23,11 +24,13 @@ interface BookState {
   mindMap: MindMapResult | null
   mindMapScope: 'book' | 'chapter' | null
   activeMode: ProcessingMode
+  pendingRestore: ReadingRestore | null
   setBook: (book: BookMeta | null) => void
   setBookData: (data: ArrayBuffer | null) => void
   setChapters: (chapters: Chapter[]) => void
   setActiveChapterId: (id: string | null) => void
   requestChapter: (id: string) => void
+  setPendingRestore: (restore: ReadingRestore | null) => void
   setSummary: (summary: SummaryResult | null) => void
   setMindMap: (mindMap: MindMapResult | null) => void
   setMindMapScope: (scope: 'book' | 'chapter' | null) => void
@@ -87,6 +90,7 @@ const baseBookStore = create<BookState>()(
       mindMap: null,
       mindMapScope: null,
       activeMode: 'summary',
+      pendingRestore: null,
       setBook: (book) => set({ book }),
       setBookData: (data) => set({ bookData: data }),
       setChapters: (chapters) =>
@@ -101,6 +105,7 @@ const baseBookStore = create<BookState>()(
       setActiveChapterId: (id) => set({ activeChapterId: id }),
       requestChapter: (id) =>
         set((state) => ({ activeChapterId: id, chapterRequest: state.chapterRequest + 1 })),
+      setPendingRestore: (restore) => set({ pendingRestore: restore }),
       setSummary: (summary) => set({ summary }),
       setMindMap: (mindMap) => set({ mindMap }),
       setMindMapScope: (mindMapScope) => set({ mindMapScope }),
@@ -125,14 +130,15 @@ const baseBookStore = create<BookState>()(
           bookData: null,
           chapters: [],
           selectedChapterIds: [],
-      activeChapterId: null,
-      chapterRequest: 0,
-      groups: [],
-      progress: initialProgress,
+          activeChapterId: null,
+          chapterRequest: 0,
+          groups: [],
+          progress: initialProgress,
           summary: null,
           mindMap: null,
           mindMapScope: null,
           activeMode: 'summary',
+          pendingRestore: null,
         }),
     }),
     {

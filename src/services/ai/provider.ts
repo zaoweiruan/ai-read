@@ -150,6 +150,7 @@ export class OpenAICompatibleProvider implements AIProvider {
           options.onChunk(delta)
         }
       } catch {
+        // SSE 行解析失败则忽略，继续处理后续数据块
       }
     })
     return full
@@ -247,6 +248,7 @@ export class GoogleProvider implements AIProvider {
           options.onChunk(text)
         }
       } catch {
+        // SSE 行解析失败则忽略，继续处理后续数据块
       }
     })
     return full

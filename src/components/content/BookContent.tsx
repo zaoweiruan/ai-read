@@ -5,6 +5,11 @@ import { getMarkdownBlocks } from '@/services/markdown'
 import { getPageText, getPdfDocument } from '@/services/pdf'
 import { renderMarkdown } from '@/lib/markdown'
 import { useBookStore } from '@/stores/book-store'
+import {
+  bookKeyOf,
+  saveReadingPosition,
+  type ReadingPositionPatch,
+} from '@/stores/reading-position-store'
 import type { ContentBlock } from '@/types'
 import {
   useReaderStore,
@@ -56,6 +61,8 @@ function cycle<T>(list: readonly T[], current: T): T {
 const COLUMN_GAP = 32
 const CONTENT_PADDING = 32
 
+type PendingSave = ReadingPositionPatch & { bookKey: string }
+
 function computeSpreads(
   el: HTMLElement,
   twoPage: boolean,
@@ -68,22 +75,46 @@ function computeSpreads(
   return Math.max(1, Math.ceil(el.scrollHeight / Math.max(usableH, 1)))
 }
 
-function ReaderImage({ src, alt }: { src: string; alt: string }) {
-  const [iconWidth, setIconWidth] = useState<string | undefined>(undefined)
+function ReaderFigure({ src, alt }: { src: string; alt: string }) {
+  const [iconNatural, setIconNatural] = useState<number | null>(null)
+  const isIcon = iconNatural !== null && iconNatural <= 200
+  const showCaption = !isIcon && alt.trim().length > 0
+  const iconWidth =
+    iconNatural !== null && isIcon ? `min(${iconNatural}px, 1em)` : undefined
   return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      onLoad={(e) => {
-        const el = e.currentTarget
-        if (el.naturalWidth > 0 && el.naturalWidth <= 200) {
-          setIconWidth(`min(${el.naturalWidth}px, 1.5em)`)
+    <figure
+      className={
+        isIcon ? 'inline-block my-0.5 pl-[2em]' : 'my-3 flex flex-col items-center'
+      }
+    >
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onLoad={(e) => {
+          const el = e.currentTarget
+          if (el.naturalWidth > 0) {
+            setIconNatural(el.naturalWidth)
+          }
+        }}
+        style={
+          isIcon
+            ? {
+                width: iconWidth,
+                maxWidth: iconWidth,
+                maxHeight: '1.3em',
+                objectFit: 'contain',
+                verticalAlign: '-0.15em',
+                display: 'inline-block',
+              }
+            : undefined
         }
-      }}
-      style={iconWidth ? { width: iconWidth, maxWidth: iconWidth } : undefined}
-      className="max-h-[70vh] w-auto max-w-full rounded-md"
-    />
+        className={isIcon ? undefined : 'max-h-[70vh] w-auto max-w-full rounded-md'}
+      />
+      {showCaption ? (
+        <figcaption className="mt-1 text-xs opacity-70">{alt}</figcaption>
+      ) : null}
+    </figure>
   )
 }
 
@@ -93,6 +124,8 @@ export function BookContent() {
   const chapters = useBookStore((s) => s.chapters)
   const activeChapterId = useBookStore((s) => s.activeChapterId)
   const chapterRequest = useBookStore((s) => s.chapterRequest)
+  const pendingRestore = useBookStore((s) => s.pendingRestore)
+  const setPendingRestore = useBookStore((s) => s.setPendingRestore)
   const setActiveChapterId = useBookStore((s) => s.setActiveChapterId)
   const fontSize = useReaderStore((s) => s.fontSize)
   const lineHeight = useReaderStore((s) => s.lineHeight)
@@ -125,6 +158,55 @@ export function BookContent() {
   const lastTopRef = useRef(0)
   const dirRef = useRef(0)
   const pendingBottomRef = useRef(false)
+  const posRef = useRef({ scrollRatio: 0, pageIndex: 0, pdfPage: 1 })
+  const pendingPatchRef = useRef<PendingSave | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const totalScreensRef = useRef(1)
+  const totalPagesRef = useRef(0)
+  const bookKey = book ? bookKeyOf(book.fileName, book.size) : null
+  const bookKeyRef = useRef<string | null>(null)
+  bookKeyRef.current = bookKey
+
+  function flushPendingSave() {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    const pending = pendingPatchRef.current
+    pendingPatchRef.current = null
+    if (!pending) return
+    const { bookKey: key, ...patch } = pending
+    saveReadingPosition(key, patch)
+  }
+
+  function schedulePositionSave(patch: ReadingPositionPatch) {
+    const key = bookKeyRef.current
+    const chapterId = patch.chapterId
+    if (!key || !chapterId) return
+    const existing = pendingPatchRef.current
+    if (existing && (existing.bookKey !== key || existing.chapterId !== chapterId)) {
+      const { bookKey: existingKey, ...existingPatch } = existing
+      saveReadingPosition(existingKey, existingPatch)
+      pendingPatchRef.current = null
+    }
+    const prev = pendingPatchRef.current
+    pendingPatchRef.current = {
+      bookKey: key,
+      chapterId,
+      scrollRatio: patch.scrollRatio ?? prev?.scrollRatio,
+      pageIndex: patch.pageIndex ?? prev?.pageIndex,
+      pdfPage: patch.pdfPage ?? prev?.pdfPage,
+    }
+    if (saveTimerRef.current) return
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null
+      const pending = pendingPatchRef.current
+      pendingPatchRef.current = null
+      if (!pending) return
+      const { bookKey: key, ...patch } = pending
+      saveReadingPosition(key, patch)
+    }, 500)
+  }
 
   function lockScroll(ms: number) {
     lockUntilRef.current = Date.now() + ms
@@ -145,8 +227,16 @@ export function BookContent() {
   const pageNavRef = useRef(false)
   const pendingLastScreenRef = useRef(false)
 
-  const activeChapter = chapters.find((c) => c.id === (localChapterId ?? activeChapterId)) ?? null
+  const activeChapter =
+    chapters.find((c) => c.id === (localChapterId ?? activeChapterId)) ??
+    chapters.find((c) => c.id === activeChapterId) ??
+    chapters[0] ??
+    null
   const activeIndex = activeChapter ? chapters.indexOf(activeChapter) : -1
+  posRef.current.pageIndex = pageIndex
+  posRef.current.pdfPage = pdfPage
+  totalScreensRef.current = totalScreens
+  totalPagesRef.current = totalPages
   const isPdf = book?.format === 'pdf'
   const paged = pageMode === 'paged'
   const pdfStep = 1
@@ -154,6 +244,7 @@ export function BookContent() {
   useEffect(() => {
     setLocalChapterId(null)
     pendingBottomRef.current = false
+    posRef.current.scrollRatio = 0
   }, [chapterRequest])
 
   useEffect(() => {
@@ -212,6 +303,7 @@ export function BookContent() {
     pendingBottomRef.current = false
     pendingLastScreenRef.current = false
     setPageIndex(0)
+    posRef.current.scrollRatio = 0
     const target = chapters[activeIndex + 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -224,6 +316,7 @@ export function BookContent() {
     pendingBottomRef.current = true
     pendingLastScreenRef.current = paged
     setPageIndex(0)
+    posRef.current.scrollRatio = 1
     const target = chapters[activeIndex - 1]
     setLocalChapterId(target.id)
     useBookStore.setState({ activeChapterId: target.id })
@@ -245,6 +338,12 @@ export function BookContent() {
     if (cur > prev) dirRef.current = 1
     else if (cur < prev) dirRef.current = -1
     lastTopRef.current = cur
+    const range = el.scrollHeight - el.clientHeight
+    const scrollRatio = range <= 0 ? 0 : Math.min(1, Math.max(0, cur / range))
+    posRef.current.scrollRatio = scrollRatio
+    if (activeChapter) {
+      schedulePositionSave({ chapterId: activeChapter.id, scrollRatio })
+    }
     const atBottom = cur + el.clientHeight >= el.scrollHeight - 24
     const atTop = cur <= 24
     if (atBottom && dirRef.current === 1) {
@@ -302,6 +401,23 @@ export function BookContent() {
     const target = chapters.find((c) => c.id === activeChapterId)
     if (target?.startPage) setPdfPage(target.startPage)
   }, [activeChapterId, chapters, isPdf])
+
+  useEffect(() => {
+    setLocalChapterId(null)
+    pendingBottomRef.current = false
+    pendingLastScreenRef.current = false
+    posRef.current.scrollRatio = 0
+    setPageIndex(0)
+  }, [book?.id, chapters])
+
+  useEffect(() => {
+    const onUnload = () => flushPendingSave()
+    window.addEventListener('beforeunload', onUnload)
+    return () => {
+      window.removeEventListener('beforeunload', onUnload)
+      flushPendingSave()
+    }
+  }, [])
 
   useEffect(() => {
     cacheRef.current.clear()
@@ -407,8 +523,75 @@ export function BookContent() {
   }, [state, paged, twoPage, fontSize, lineHeight])
 
   useEffect(() => {
+    if (useBookStore.getState().pendingRestore) return
     scrollRef.current?.scrollTo({ top: 0 })
   }, [activeChapterId])
+
+  useEffect(() => {
+    if (state.status !== 'ready' || !pendingRestore) return
+    const restore = pendingRestore
+    const raf = requestAnimationFrame(() => {
+      if (useBookStore.getState().pendingRestore !== restore) return
+      if (isPdf && typeof restore.pdfPage === 'number') {
+        const maxPage = totalPagesRef.current
+        const page =
+          maxPage > 0
+            ? Math.min(Math.max(1, Math.floor(restore.pdfPage)), maxPage)
+            : Math.max(1, Math.floor(restore.pdfPage))
+        const before = useBookStore.getState().activeChapterId
+        goToPage(page)
+        if (useBookStore.getState().activeChapterId === before) {
+          pageNavRef.current = false
+        }
+        posRef.current.pdfPage = page
+      } else if (!isPdf && paged && typeof restore.pageIndex === 'number') {
+        const idx = Math.max(0, Math.floor(restore.pageIndex))
+        const clamped =
+          totalScreensRef.current > 0
+            ? Math.min(idx, totalScreensRef.current - 1)
+            : idx
+        setPageIndex(clamped)
+        posRef.current.pageIndex = clamped
+      } else if (!isPdf && !paged && typeof restore.scrollRatio === 'number') {
+        const el = scrollRef.current
+        if (el) {
+          const ratio = Math.min(1, Math.max(0, restore.scrollRatio))
+          const range = el.scrollHeight - el.clientHeight
+          const target = range > 0 ? ratio * range : 0
+          markProgrammaticScroll(1500)
+          lockScroll(1500)
+          el.scrollTop = target
+          lastTopRef.current = target
+          posRef.current.scrollRatio = ratio
+        }
+      }
+      setPendingRestore(null)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [state, pendingRestore, isPdf, paged, setPendingRestore])
+
+  useEffect(() => {
+    if (!bookKey || !activeChapter || !bookData || pendingRestore) return
+    flushPendingSave()
+    const snap = posRef.current
+    saveReadingPosition(
+      bookKey,
+      isPdf
+        ? { chapterId: activeChapter.id, pdfPage: snap.pdfPage }
+        : paged
+          ? { chapterId: activeChapter.id, pageIndex: snap.pageIndex }
+          : { chapterId: activeChapter.id, scrollRatio: snap.scrollRatio },
+    )
+  }, [
+    bookKey,
+    activeChapter,
+    bookData,
+    pendingRestore,
+    paged,
+    isPdf,
+    pageIndex,
+    pdfPage,
+  ])
 
   const paragraphs = useMemo(() => {
     if (state.status !== 'ready') return []
@@ -660,7 +843,7 @@ export function BookContent() {
         {state.status === 'idle' ? (
           <p className="text-sm opacity-70">
             {bookData
-              ? '点击左侧章节标题即可查看该章正文。'
+              ? '未解析出可阅读的章节。'
               : book
                 ? '书籍文件未驻留（刷新后不保留），请在顶部重新上传以继续阅读与处理。'
                 : '请在顶部上传 EPUB 或 PDF 以开始阅读。'}
@@ -716,14 +899,7 @@ export function BookContent() {
                       ))}
                   </div>
                 ) : (
-                  <figure key={`img-${i}`} className="my-3 flex flex-col items-center">
-                    <ReaderImage src={block.src} alt={block.alt} />
-                    {block.alt ? (
-                      <figcaption className="mt-1 text-xs opacity-70">
-                        {block.alt}
-                      </figcaption>
-                    ) : null}
-                  </figure>
+                  <ReaderFigure key={`img-${i}`} src={block.src} alt={block.alt} />
                 ),
               )}
             </div>

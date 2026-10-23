@@ -314,14 +314,14 @@ export async function getChapterBlocks(
   if (!chapter.href) return []
   const book = await openBook(data)
   const href = resolveContentHref(book, chapter.href)
-  let chapterPath = `/${normalizePath(href)}`
+  let chapterPath: string
   try {
     chapterPath = book.resolve(href)
   } catch {
     chapterPath = `/${normalizePath(href)}`
   }
   const images: RawImage[] = []
-  let raw: RawBlock[] = []
+  let raw: RawBlock[]
   try {
     const doc = await book.load(href)
     raw = extractRawBlocks(doc as unknown as Node, images)

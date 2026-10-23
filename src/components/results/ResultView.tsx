@@ -349,7 +349,7 @@ function computeMini(inst: MindElixirInstance): MiniState | null {
   const box = inst.container.getBoundingClientRect();
   const topics = Array.from(inst.container.querySelectorAll<HTMLElement>('.me-tpc'));
   if (topics.length === 0) return null;
-  let rootEl: HTMLElement | null = null;
+  let rootEl: HTMLElement | null;
   try {
     rootEl = inst.findEle(inst.nodeData.id);
   } catch {

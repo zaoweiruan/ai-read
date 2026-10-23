@@ -23,9 +23,17 @@ export interface BookMeta {
   id: string
   fileName: string
   format: BookFormat
+  size?: number
   title?: string
   author?: string
   cover?: string
+}
+
+export interface ReadingRestore {
+  chapterId: string
+  scrollRatio?: number
+  pageIndex?: number
+  pdfPage?: number
 }
 
 export interface AdvancedOptions {

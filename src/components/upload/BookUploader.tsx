@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useBookStore } from '@/stores/book-store'
+import { bookKeyOf, getReadingPosition } from '@/stores/reading-position-store'
 import { Button } from '@/components/ui/button'
 import { parseEpub } from '@/services/epub'
 import { parsePdf } from '@/services/pdf'
@@ -24,6 +25,8 @@ export function BookUploader() {
   const setBook = useBookStore((s) => s.setBook)
   const setBookData = useBookStore((s) => s.setBookData)
   const setChapters = useBookStore((s) => s.setChapters)
+  const requestChapter = useBookStore((s) => s.requestChapter)
+  const setPendingRestore = useBookStore((s) => s.setPendingRestore)
   const reset = useBookStore((s) => s.reset)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,12 +52,23 @@ export function BookUploader() {
         id: Math.random().toString(36).slice(2, 10),
         fileName: file.name,
         format,
+        size: file.size,
         title: parsed.title ?? undefined,
         author: parsed.author ?? undefined,
         cover: hasCover(parsed) ? parsed.cover : undefined,
       })
       setBookData(data.slice(0))
       setChapters(parsed.chapters)
+      const position = getReadingPosition(bookKeyOf(file.name, file.size))
+      if (position && parsed.chapters.some((c) => c.id === position.chapterId)) {
+        setPendingRestore({
+          chapterId: position.chapterId,
+          scrollRatio: position.scrollRatio,
+          pageIndex: position.pageIndex,
+          pdfPage: position.pdfPage,
+        })
+        requestChapter(position.chapterId)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '解析失败')
     } finally {

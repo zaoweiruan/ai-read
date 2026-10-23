@@ -209,3 +209,11 @@
 - [x] 换页方式「连续 / 切换」：切换模式按视口高度分屏（translateY 位移 + overflow-hidden），滚轮/按钮逐屏翻，末屏进下一章、首屏回上一章（定位末屏）；PDF 在切换模式下按**页**翻
 - [x] 切换模式补充常驻提示「第 N / M 屏 · 向下滚动或点「下一页」继续查看本章后续内容」（实测 1/37 屏 → 滚轮 2/37 → 下一页 3/37）
 - [x] 验收（2026-10-22 浏览器 E2E）：小图标 styleWidth=min(20px,1.5em) 渲染 20px（不放大、且 ≤1.5em）✓；双页：PDF 两栏并排且内容为第 1/2 页 ✓、EPUB columnCount=2 ✓；切换：EPUB 第 1/1 屏 → 滚轮 → 第 1/2 屏 ✓、切回连续恢复「EPUB 无分页」✓；AI 面板折叠 → 导轨出现、grid 40px ✓ → 恢复 ✓
+
+## 阶段 19：打开即显示正文 + 阅读进度恢复（2026-10-23，设计 `plans/2026-10-23-Design-Reader-OpenResume-v1.0.md`，计划 `plans/2026-10-23-Plan-Reader-OpenResume-v1.0.md`）
+
+- [x] U1 修复当前章解析：`localChapterId` 换书即清 + fallback `chapters[0]`（消除占位；idle 文案改为「未解析出可阅读的章节。」）
+- [x] U2 `reading-position-store`（`ai-read:reading-pos`，LRU 20，`bookKeyOf`，`globalThis` 单例 + safeStorage + 记录归一化校验）+ `BookMeta.size` + `ReadingRestore` 类型
+- [x] U3 保存接线：连续 scrollRatio 节流 500ms + 切章/分页/PDF 页码即刻 + `beforeunload`/卸载冲刷（`BookContent` `flushPendingSave`/`schedulePositionSave`）
+- [x] U4 恢复流程：`BookUploader` 解析后 `getPosition` 匹配 → `setPendingRestore` + `requestChapter`；`BookContent` ready 后 rAF 一次性消费（连续 `scrollTop`+程序化标记 / 分页 `setPageIndex(clamp)` / PDF `goToPage(clamp)`），滚顶 effect 存在 pending 时跳过；`pendingRestore` 存 book-store（不持久化、reset 清空）
+- [x] U5 验收：`pnpm typecheck` / `pnpm lint` / `pnpm build` 全绿（lint 原缺 ESLint 依赖 → 补装 `eslint`+`typescript-eslint`+`eslint-plugin-react-hooks` 并新增 `eslint.config.js`；关闭 `set-state-in-effect` 新规则以适配既有 effect 模式；0 errors / 3 条既有 exhaustive-deps 警告）；写后必查杂散 token 扫描通过；设计 §7 清单 1–6 待浏览器人工验收
