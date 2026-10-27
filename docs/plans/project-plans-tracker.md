@@ -217,3 +217,23 @@
 - [x] U3 保存接线：连续 scrollRatio 节流 500ms + 切章/分页/PDF 页码即刻 + `beforeunload`/卸载冲刷（`BookContent` `flushPendingSave`/`schedulePositionSave`）
 - [x] U4 恢复流程：`BookUploader` 解析后 `getPosition` 匹配 → `setPendingRestore` + `requestChapter`；`BookContent` ready 后 rAF 一次性消费（连续 `scrollTop`+程序化标记 / 分页 `setPageIndex(clamp)` / PDF `goToPage(clamp)`），滚顶 effect 存在 pending 时跳过；`pendingRestore` 存 book-store（不持久化、reset 清空）
 - [x] U5 验收：`pnpm typecheck` / `pnpm lint` / `pnpm build` 全绿（lint 原缺 ESLint 依赖 → 补装 `eslint`+`typescript-eslint`+`eslint-plugin-react-hooks` 并新增 `eslint.config.js`；关闭 `set-state-in-effect` 新规则以适配既有 effect 模式；0 errors / 3 条既有 exhaustive-deps 警告）；写后必查杂散 token 扫描通过；设计 §7 清单 1–6 待浏览器人工验收
+
+## 阶段 20：PDF 视口接续流 · 修复下部空白（2026-10-26，设计 `plans/2026-10-26-Design-Reader-Pdf-Continuation-v1.0.md`）
+
+- [x] 设计文档入库并登记 `docs/INDEX.md`；定位根因：`getPageText` 一页只产出一个字符串 → 一页文字不足一屏时 `flex-1` 容器下部即纯背景空白（双页 `columns-2` 使高度再减半）
+- [x] 新增 `src/components/content/use-pdf-stream.ts`：锚点页 `anchor` + 装载末页 `end` + 按页文本缓存；`grow()` 追加一页、`rearm()` 重置追加计数（上限 12 页/锚点）、`reachedEnd` 终止判断、单页提取失败按空页跳过
+- [x] `BookContent` PDF 分支改由 hook 渲染，块上打 `data-pdf-page`；`readingPage` 与装载锚点解耦（视口首个可见块推导），工具栏页码与右上徽标同源
+- [x] 追加闭环：`measure()` 内容高 < 目标（连续 `视口×1.5` / 切换 `(屏+2)×行栅格`、双页比 `scrollWidth`）→ `grow()` → 内容变化再度量；连续滚动接近底部先追加，只要未到 `totalPages` 就不跳章
+- [x] 章节归属按页区间推导（outline 无 `endPage` 时取下一章 `startPage-1`），同步 `activeChapterId` 时置 `streamSyncRef` 抑制「重设锚点」与「滚回顶部」两个副作用；`goToPage` 同步 `localChapterId` 避免显示回退
+- [x] 翻页/导航：上一页·下一页 = `readingPage ± 1` 重置锚点并回顶；流顶部向上滚动改为 `readingPage - 1`（修掉误触发「上一章」导致徽标与页码不同步）
+- [x] 验收（2026-10-26 浏览器 E2E，样本 `fill-24p.pdf` 24 页 × 3 行/页、`nav-4p.pdf`）：打开即装载 1..9 页、内容高 745px ≥ 1.5 × 415px 视口（无空白）✓；下滚逐次追加 1 页且页码 3 → 6 → 7 跟随视口、章节同步不回顶 ✓；读到 24/24 显示「已到最后一页」✓；双页 `columnCount=2`、gap 32px、块 12/12 分栏 ✓；切换栏高 376.2px=行栅格、translateX/translateY 正常、滚轮 3 → 4 页 ✓；上一页/下一页 1 → 2 → 3 且徽标与页码一致 ✓；重开同文件恢复至第 9 页（首块 `data-pdf-page=9`、装载 9..17）✓
+- [x] `pnpm typecheck` / `pnpm lint`（0 error）/ `pnpm build` 全绿；写后必查杂散 token 扫描通过
+- [x] **v1.1 补丁**（用户反馈「双页模式下翻页不应该有上页内容」）：定位为 `columns-2` 平衡双栏导致页边界非线性、锚点 +2 仍落回旧页；PDF + 双页 + 连续改为**页面对网格**（`grid grid-cols-2`，第 N 行 = 页 N｜页 N+1），追加不触发重排；双页切换保留 `columns-2` + 横向 `translateX`
+- [x] v1.1 配套：`pdfStep = isPdf && twoPage && !paged ? 2 : 1`；双页连续装载需成对（`blocks.length % 2 === 1` 继续 `grow()`）；页码显示 `第 N-(N+1) / T 页`
+- [x] v1.1 验收（样本 `dense-30p.pdf` 30 页 × 12 行）：双页连续 `1-2 → 3-4 → 5-6 → 7-8 → 9-10 → 11-12` 无重复、反向一致；连续滚动 `scrollTop` 0 → 1400 可见页 `5,6 → 7,8` 且页码同步；双页切换 `5 → 6 → 7 → 8`；单页 `8 → 9 → 10` 无回归；`typecheck` 通过、`lint` 0 error / 4 条既有 warning
+- [x] **v1.2 补丁**（用户再次反馈「翻页后，还是有前页面内容」）：定位为双页 + **切换** 仍走 `columns-2`，追加下一页触发平衡分栏整篇重排，而 PDF 的 `translateX` 恒为 0（锚点重置后 `pageIndex=0`），于是屏上残留上一页文字（实测 `scrollWidth` 1111 → 2253、`translateX(0px)`）
+- [x] v1.2 实现：PDF 分支 `twoPage ? 'grid grid-cols-2 gap-8' : undefined`，删除 PDF 的 paged 位移块与按栏宽预取分支；PDF 切换模式容器改 `overflow-y-auto`（网格行不被 `overflow-hidden` 裁切）；`pdfStep = isPdf && twoPage ? 2 : 1`（连续/切换统一跨页步进）；`handleScroll` 与 `syncReadingPage` 统一按纵向判定（删除横向分支）；两个 readingPage 同步 effect 合并；页码区间仅在下一页已装载（`readingPage + 1 <= loadedEnd`）时显示 `N-(N+1)`，且不再限定 `!paged`
+- [x] v1.2 验收（样本 `long-20p.pdf` 20 页 × 18 行，浏览器 5173）：双页切换 `13-14 → 15-16 → 17-18`、双页连续 `7-8 → 9-10`、单页连续 `18 → 19`、单页切换 `17 → 18`，四种组合翻页后 `scrollTop=0` 且 `inView` 不含旧页；双页连续滚到底显示 `19-20 / 20` 与「已到最后一页」；`typecheck` 通过、`lint` 0 error / 3 条既有 warning
+- [x] **v1.3 补丁**（用户反馈「这次变更改变了切换的意义，变成了类似连续翻页？」）：用户定案「双页 + 切换 = 当页文字分左右两栏」；恢复 PDF 切换模式为**整屏切换**：容器 `overflow-hidden`，PDF 双页 `columns-2 gap-8` + `height: viewportH` + `translateX(-pageIndex*spreadW)`，单页 `translateY(-pageIndex*viewportH)`；`syncReadingPage` 在切换模式下直接返回（页码取流起始页）；`setSpreadW` PDF 切换+双页按 `clientWidth`
+- [x] v1.3 实现：measure 预取分支（切换+双页按列宽 / 切换单页按屏高 / 连续按 1.5 屏 / 成对装载仅连续）；`nextScreen`/`prevScreen` 为 PDF 在末屏时 `grow()` + `pendingNextScreenRef` 推进一屏、真末尾进下一章、回退到上一页开头；工具栏上一页/下一页与 `handleWheel` 切换模式一律走 `prevScreen()`/`nextScreen()`（含 PDF）；底部提示扩展到 PDF 切换模式
+- [x] v1.3 验收（样本 `long-20p.pdf`，5173）：双页切换 `transform 0 → -539 → -1078` 无残留上页文字，上下翻页一致；单页切换 `translateY(0) → translateY(-307.8)`；连续双页 `grid grid-cols-2`、`overflow: auto` 不回归；`typecheck` 通过、`lint` 0 error / 3 条既有 warning、`build` 通过

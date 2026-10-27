@@ -38,6 +38,7 @@
 - [2026-10-22 设计 阅读区：图标缩放 · AI 面板折叠 · 双页并列 · 换页方式 v1.0](plans/2026-10-22-Design-Reader-PageModes-v1.0.md) — 小图标按 min(自然宽,1.5em) 收敛；处理面板可折叠为 40px 导轨；双页并列（PDF 两页 / 正文双栏）；换页方式「连续 / 切换」整屏翻页。
 - [2026-10-23 设计 打开即显示正文 + 阅读进度恢复 v1.0](plans/2026-10-23-Design-Reader-OpenResume-v1.0.md) — 修复换书后 `localChapterId` 脏 id 导致占位文案（打开即显示第一页）；新增 reading-position-store 按 `文件名:大小` 持久化章 + 屏内位置（scrollRatio/pageIndex/pdfPage，LRU 20 本），重传同文件恢复上次阅读位置。
 - [2026-10-23 计划 打开即显示正文 + 阅读进度恢复 v1.0](plans/2026-10-23-Plan-Reader-OpenResume-v1.0.md) — 实现计划：U1 章解析脏 id 修复 → U2 位置存储 → U3 保存接线 → U4 恢复流程（一次性 pending + 滚顶冲突处理）→ U5 全量验收。
+- [2026-10-26 设计 阅读器 PDF 视口接续流 v1.0](plans/2026-10-26-Design-Reader-Pdf-Continuation-v1.0.md) — 修复「打开 PDF 下部大片空白」：一页文字不足一屏时自动接续后续页（锚点页 / 装载末页 / 阅读页三态解耦），页码与章节归属改由 `readingPage` 统一推导。
 
 ## 环境快照（build-env）
 
