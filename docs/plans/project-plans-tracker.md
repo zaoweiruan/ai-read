@@ -237,3 +237,51 @@
 - [x] **v1.3 补丁**（用户反馈「这次变更改变了切换的意义，变成了类似连续翻页？」）：用户定案「双页 + 切换 = 当页文字分左右两栏」；恢复 PDF 切换模式为**整屏切换**：容器 `overflow-hidden`，PDF 双页 `columns-2 gap-8` + `height: viewportH` + `translateX(-pageIndex*spreadW)`，单页 `translateY(-pageIndex*viewportH)`；`syncReadingPage` 在切换模式下直接返回（页码取流起始页）；`setSpreadW` PDF 切换+双页按 `clientWidth`
 - [x] v1.3 实现：measure 预取分支（切换+双页按列宽 / 切换单页按屏高 / 连续按 1.5 屏 / 成对装载仅连续）；`nextScreen`/`prevScreen` 为 PDF 在末屏时 `grow()` + `pendingNextScreenRef` 推进一屏、真末尾进下一章、回退到上一页开头；工具栏上一页/下一页与 `handleWheel` 切换模式一律走 `prevScreen()`/`nextScreen()`（含 PDF）；底部提示扩展到 PDF 切换模式
 - [x] v1.3 验收（样本 `long-20p.pdf`，5173）：双页切换 `transform 0 → -539 → -1078` 无残留上页文字，上下翻页一致；单页切换 `translateY(0) → translateY(-307.8)`；连续双页 `grid grid-cols-2`、`overflow: auto` 不回归；`typecheck` 通过、`lint` 0 error / 3 条既有 warning、`build` 通过
+
+## 阶段 21：修复 刷新后目录有内容、正文与处理均无内容（2026-10-27，bugfix `bugfix/2026-10-27-Bugfix-Book-Data-Resident-v1.0.md`）
+
+- [x] 复现与定位：用户刷新页面后左侧目录树 165 章正常、徽章 7/165，但正文「该页没有可提取的文本」、处理面板「电子书数据未驻留」、页码「第 9 / ? 页」；根因是 `book-store.ts` 的 persist `partialize` 不含 `bookData`（JSONStorage 无法序列化 ArrayBuffer），刷新后恢复 book/chapters 但二进制缺失，`use-pdf-stream` 在 `data=null` 时静默空态
+- [x] 修复：`book-store.ts` persist 新增 `merge`——持久化数据含 `book` 即判定陈旧（bookData 永远不持久化），返回干净默认态并 `safeStorage.removeItem('ai-read:book')` 清除陈旧 blob；`BookContent.tsx` PDF 空态补 `!bookData` 一档，文案与非 PDF 分支一致（「书籍文件未驻留（刷新后不保留），请在顶部重新上传以继续阅读与处理。」）
+- [x] 验收：`typecheck` 通过；`lint` 0 error / 3 条既有 exhaustive-deps warning；`build` 通过
+- [x] E2E（浏览器 5173，标签页 `tab_76dff399-06cc-4c0b-af82-d4804e8f108e`）：种入陈旧 `ai-read:book` blob（379 B）→ 刷新 → `ai-read:book` = null、章节选择「0 / 0 · 尚未加载书籍章节。」、正文「请在顶部上传 EPUB 或 PDF 以开始阅读。」；重新上传 `long-20p.pdf` → `[data-pdf-page]` 块装载页 1-3、首块文本正常、工具条「第 1 / 20 页」，无「该页没有可提取的文本」「电子书数据未驻留」提示
+
+## 阶段 22：最近打开文件（2026-10-27，设计 `plans/2026-10-27-Design-Recent-Files-v1.0.md`）
+
+- [x] 需求澄清（question 工具定案）：点击记录 = 唤起文件选择器重新选择同一文件（沿用 文件名:大小 匹配恢复阅读位置）；记录数量默认 10、范围 1–50
+- [x] 设计文档入库并登记 `docs/INDEX.md`
+- [x] `src/lib/recent-limit.ts`：DEFAULT_RECENT_LIMIT=10 / MAX_RECENT_LIMIT=50 / clampRecentLimit（中立模块，避免 settings-store 与 recent-files-store 循环依赖）
+- [x] `src/stores/recent-files-store.ts`（`ai-read:recent-files`，globalThis 单例 + safeStorage + 记录归一化校验）：addRecent 去重置顶（键 文件名:大小）+ 按 settings 的 limit 裁剪、removeRecent / clearRecent / trimTo
+- [x] settings-store 增加 `recentFilesLimit` / `setRecentFilesLimit`（默认 10，clamp 1–50）；`types/settings.ts` settingsSchema 同步
+- [x] ConfigDialog 新增「最近打开文件」配置组：数字输入（1–50 越界不写入、草稿回显 store 值）+「清空记录」
+- [x] BookUploader：「选择文件」右侧新增「最近打开文件 / 收起最近文件」切换按钮；列表区含计数 `N/limit 条`、清空、单条（书名 + 格式·大小·时间·原始名）与「打开 / 移除」、空态与提示文案；解析成功后 addRecent
+- [x] 验收：`pnpm typecheck` / `pnpm build` 通过；写后必查杂散 token 扫描通过（recent-files-store / BookUploader / ConfigDialog）；浏览器 E2E 待人工验收
+
+## 阶段 23：最近打开文件 v1.1 —「打开」直接重开文件（2026-10-27，设计 `plans/2026-10-27-Design-Recent-Files-v1.1.md`）
+
+- [x] 用户反馈（原话）：「点击文件旁『打开』按钮时应该打开文件，不是打开对话框」——v1.0 的「打开」实现为触发隐藏 file input 弹系统选择器，不符合预期
+- [x] 浏览器安全边界定案：无法凭路径直读本地文件；`showOpenFilePicker` 仅 Chromium 且需持续授权，与「同一套前端双端可用」边界冲突，不采纳为主路径；**点击事件获得的 File 对象在会话内可持有** → 会话级缓存为无后端最优解
+- [x] 新建 `src/lib/recent-file-cache.ts`：模块级 Map（键 `文件名:size`）`cacheRecentFile`（LRU 上限 MAX_RECENT_LIMIT=50）/ `getCachedFile`（命中刷新 recency）/ `dropCachedFile` / `clearCachedFiles`；**不持久化**（File 不可序列化）
+- [x] `recent-files-store.ts`：`recentKeyOf` 增加 export；`removeRecent` 先 `dropCachedFile(key)` 再过滤；`clearRecent` 先 `clearCachedFiles()` 再清空
+- [x] `BookUploader.tsx`：`handleFile` 在 addRecent 之后 `cacheRecentFile(recentKeyOf(file.name,file.size), file)`（仅解析成功才缓存）；「打开」按钮改为 `getCachedFile` 命中 → `void handleFile(cached)` 直接重开（复用解析 + 阅读位置恢复全流水线），未命中 → `inputRef.current?.click()` 回退选择器；底部提示改为「同一标签页内点击『打开』会直接重新打开该文件；刷新或重启浏览器后，需重新选择同一文件，将自动恢复上次阅读位置。」
+- [x] 设计文档 v1.1 入库并登记 `docs/INDEX.md`（§6 变更清单 / §8 backlog：File System Access API 后续增强）
+- [x] 验收：`pnpm typecheck` 0 error；`pnpm lint` 0 error / 3 条既有 warning；`pnpm build` 通过（✓ built in 4.91s，仅既有 chunk >500kB 提示）；写后必查全量重读 recent-file-cache.ts / recent-files-store.ts / BookUploader.tsx，代码位无杂散 token
+- [x] Agent E2E 自测（playwright + 间谍计数 `HTMLInputElement.prototype.click`，localStorage 持久化命中 'ai-read:recent-files'）：①上传 `test/nav-4p.pdf` → 展开最近列表 → 点「打开」：`__inputClicks` = 0，**未唤起系统选择器，直接重开**（4 页内容即恢复）✓；②刷新页面（会话缓存清空、localStorage 保留记录）→ 点「打开」：`__inputClicks` = 1，按设计回退系统选择器 ✓。结论：用户反馈的「还是打开对话框」为跨会话（刷新/新标签页/旧页面）场景，属浏览器安全硬约束；同会话路径已验证可用
+- [x] 用户定案（2026-10-28，question 工具答复）：浏览器为 Chrome/Edge；File System Access API 跨会话直开增强**不实施，保持 v1.1 现状**（v1.1 §8 backlog 保留为后续可选项）
+## 阶段 24：最近打开文件 v1.2 —— 点击文件名直接打开（2026-10-28，设计 \plans/2026-10-28-Design-Recent-Files-v1.2.md\）
+
+- [x] 用户需求（原话）：「优化，可以通过点击文件名直接打开」
+- [x] 设计文档 v1.2 入库并登记 \docs/INDEX.md\（提取 \openRecord(r)\ 辅助函数；主行由 \<p>\ 改为可点击 \<button>\；点击文件名与「打开」按钮共用同一逻辑；跨会话仍回退选择器）
+- [x] \BookUploader.tsx\ 5 处编辑：import \RecentFileRecord\ 类型；新增 \openRecord(r)\；「打开」按钮 onClick 改为 \openRecord(r)\；主行改为可点击按钮（\cursor-pointer hover:underline\，disabled=busy）；底部提示文案同步更新
+- [x] 写后必查：重读 BookUploader.tsx 行 160-234，代码位无杂散 token（仅注释/UI 文案含中文）
+- [x] 顺手修复既有 lint 错误：\BookMeta.id\ 的 \Math.random().toString(36).slice(2,10)\ 触发 React 19 \eact-hooks/purity\ 规则，改为 \crypto.randomUUID().slice(0, 8)\
+- [x] 验收：\pnpm typecheck\ 0 error；\pnpm lint\ 0 error / 3 条既有 warning；\pnpm build\ 通过（✓ built in 4.59s）
+- [ ] 待用户确认的新 bug（2026-10-28）：「保存的文件名有问题，应该是扩展名前所有字符，不是第一个'.'前字符串」——已 OCR 用户截图（\log/c5c85780-...png\），最近列表显示条目「马克思入门」（EPUB 212.7KB）；src 全仓库 grep 未发现 first-dot 截断逻辑（markdown fallbackTitle 与 BookUploader 行 78 均用 anchored \/\.(md|markdown)\$/i\；epub/pdf 标题来自 metadata）。需用户指明「保存的文件名」所在界面/操作以定位
+## 阶段 25：最近打开文件 v1.3 —— File System Access API 直开 + 文件名完整显示（2026-10-28，设计 `plans/2026-10-28-Design-Recent-Files-v1.3.md`）
+
+- [x] 用户定案：「1.选 A」实施 File System Access API（Chromium 无对话框直开、非 Chromium 回退）；「2.目前显示的文件名不是完整名称」确认显示名不完整
+- [x] 设计文档 v1.3 入库并登记 `docs/INDEX.md`
+- [x] 新增 `src/lib/file-handle-store.ts`：IndexedDB 封装（put/get/delete/clear）+ `isFsaaSupported()`
+- [x] `recent-files-store.ts`：removeRecent/clearRecent 联动删除 IndexedDB handle
+- [x] `BookUploader.tsx`：`pickFileWithFsaa()`（showOpenFilePicker）；`openRecord()` 优先缓存 → IndexedDB handle → requestPermission → getFile；失败回退文件选择器；「选择文件」按钮走 FSAA
+- [x] 文件名完整显示：新增 `stripExtension()`，主行显示扩展名前完整文件名，按钮 `title={fileName}` tooltip
+- [ ] 待验收：pnpm typecheck / lint / build；Chromium E2E（刷新后点击条目无对话框）；非 Chromium 回退

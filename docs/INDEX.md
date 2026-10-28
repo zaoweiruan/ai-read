@@ -17,6 +17,7 @@
 - [2026-10-19 诊断 AI 请求 Failed to fetch v1.0](bugfix/2026-10-19-Bugfix-AI-Provider-CORS-v1.0.md) — Kilo 网关端点不支持浏览器 CORS 导致 fetch 网络层拦截；附端点探测矩阵与解决方案。
 - [2026-10-21 修复 处理面板 tab 消失 v1.0](bugfix/2026-10-21-Bugfix-ProcessingPanel-Tab-Disappear-v1.0.md) — 根因：Vite 监听 `docs/**` 变更触发整页 reload 清空内存态 + AI 请求无超时导致 tab 永久禁用 + 完成后自动滚动推离 tab；修复含 watcher ignore、60s 看门狗、移除自动滚动。
 - [2026-10-23 修复 注释图标渲染过大 v1.0](bugfix/2026-10-23-Bugfix-Reader-Annotation-Icon-v1.0.md) — 根因：EPUB 小图注释图标「注」限于 min(自然宽,1.5em) 仍大于正文字符，且图片容器 `my-3` 居中打断 `text-indent:2em` 段落流；修复为 cap 1em + max-height 1.3em + contain 垂直基线内嵌，去图题/圆角，容器改 `my-0.5 pl-[2em]`。
+- [2026-10-27 修复 刷新后目录有内容、正文与处理均无内容 v1.0](bugfix/2026-10-27-Bugfix-Book-Data-Resident-v1.0.md) — 根因：`bookData`（PDF/EPUB 二进制）不参与 book-store 持久化，刷新后恢复 book/chapters 但 bookData=null，出现「目录看似已加载却读不了」的矛盾；修复为 persist `merge` 丢弃陈旧数据回到统一未加载态，PDF 空态补 `!bookData` 防御文案。
 
 ## 设计 / 分析 / 参考（按需登记）
 
@@ -39,6 +40,10 @@
 - [2026-10-23 设计 打开即显示正文 + 阅读进度恢复 v1.0](plans/2026-10-23-Design-Reader-OpenResume-v1.0.md) — 修复换书后 `localChapterId` 脏 id 导致占位文案（打开即显示第一页）；新增 reading-position-store 按 `文件名:大小` 持久化章 + 屏内位置（scrollRatio/pageIndex/pdfPage，LRU 20 本），重传同文件恢复上次阅读位置。
 - [2026-10-23 计划 打开即显示正文 + 阅读进度恢复 v1.0](plans/2026-10-23-Plan-Reader-OpenResume-v1.0.md) — 实现计划：U1 章解析脏 id 修复 → U2 位置存储 → U3 保存接线 → U4 恢复流程（一次性 pending + 滚顶冲突处理）→ U5 全量验收。
 - [2026-10-26 设计 阅读器 PDF 视口接续流 v1.0](plans/2026-10-26-Design-Reader-Pdf-Continuation-v1.0.md) — 修复「打开 PDF 下部大片空白」：一页文字不足一屏时自动接续后续页（锚点页 / 装载末页 / 阅读页三态解耦），页码与章节归属改由 `readingPage` 统一推导。
+- [2026-10-27 设计 最近打开文件 v1.0](plans/2026-10-27-Design-Recent-Files-v1.0.md) — 上传区新增「最近打开文件」按钮显隐列表（去重键 文件名:大小，仅存元数据）+ 记录数量（默认 10，范围 1–50）在配置对话框编辑。
+- [2026-10-27 设计 最近打开文件 v1.1](plans/2026-10-27-Design-Recent-Files-v1.1.md) — v1.1 增量：用户反馈「打开」应直接打开文件而非弹文件选择框；新增会话级 File 缓存（LRU 50、不持久化），会话内命中缓存直接重开，刷新/重启后回退选择器。
+- [2026-10-28 设计 最近打开文件 v1.2](plans/2026-10-28-Design-Recent-Files-v1.2.md) — v1.2 增量：用户反馈点击文件名直接打开；提取 openRecord 辅助函数，条目主行改为可点击按钮（与「打开」同逻辑），跨会话仍回退选择器。
+- [2026-10-28 设计 最近打开文件 v1.3](plans/2026-10-28-Design-Recent-Files-v1.3.md) — v1.3 增量：File System Access API 直开（Chromium 无对话框、非 Chromium 回退）+ 文件名完整显示（扩展名前全字符 + tooltip）。
 
 ## 环境快照（build-env）
 

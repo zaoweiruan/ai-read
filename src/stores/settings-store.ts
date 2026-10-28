@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ProviderSettings } from '@/types/settings'
+import { DEFAULT_RECENT_LIMIT, clampRecentLimit } from '@/lib/recent-limit'
 
 const STORAGE_KEY = 'ai-read:settings'
 
@@ -12,6 +13,8 @@ interface SettingsState {
   removeProvider: (id: string) => void
   setActiveProvider: (id: string) => void
   getActiveProvider: () => ProviderSettings | undefined
+  recentFilesLimit: number
+  setRecentFilesLimit: (limit: number) => void
   isConfigured: () => boolean
 }
 
@@ -20,6 +23,7 @@ const baseSettingsStore = create<SettingsState>()(
     (set, get) => ({
       providers: [],
       activeProviderId: undefined,
+      recentFilesLimit: DEFAULT_RECENT_LIMIT,
       addProvider: (provider) =>
         set((state) => ({
           providers: [...state.providers, provider],
@@ -43,6 +47,7 @@ const baseSettingsStore = create<SettingsState>()(
           }
         }),
       setActiveProvider: (id) => set({ activeProviderId: id }),
+      setRecentFilesLimit: (limit) => set({ recentFilesLimit: clampRecentLimit(limit) }),
       getActiveProvider: () => {
         const { providers, activeProviderId } = get()
         return providers.find((p) => p.id === activeProviderId) ?? providers[0]

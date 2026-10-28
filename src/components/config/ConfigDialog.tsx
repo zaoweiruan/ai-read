@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useSettingsStore } from '@/stores/settings-store'
+import { useRecentFilesStore } from '@/stores/recent-files-store'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { verifyProvider, type VerifyResult } from '@/services/ai/verify'
+import { MAX_RECENT_LIMIT } from '@/lib/recent-limit'
 import type { ProviderKind } from '@/services/ai'
 import type { ProviderSettings } from '@/types/settings'
 
@@ -43,10 +45,28 @@ export function ConfigDialog({ open, onOpenChange }: ConfigDialogProps) {
   const addProvider = useSettingsStore((s) => s.addProvider)
   const updateProvider = useSettingsStore((s) => s.updateProvider)
   const removeProvider = useSettingsStore((s) => s.removeProvider)
+  const recentFilesLimit = useSettingsStore((s) => s.recentFilesLimit)
+  const setRecentFilesLimit = useSettingsStore((s) => s.setRecentFilesLimit)
+  const clearRecentFiles = useRecentFilesStore((s) => s.clearRecent)
+  const trimRecentFiles = useRecentFilesStore((s) => s.trimTo)
+  const [limitDraft, setLimitDraft] = useState(String(recentFilesLimit))
   const [draftKind, setDraftKind] = useState<ProviderKind>('openai-compatible')
   const [drafts, setDrafts] = useState<Record<string, ProviderSettings>>({})
   const [newDraft, setNewDraft] = useState<ProviderSettings | null>(null)
   const [verifies, setVerifies] = useState<Record<string, VerifyState>>({})
+
+  useEffect(() => {
+    if (open) setLimitDraft(String(useSettingsStore.getState().recentFilesLimit))
+  }, [open])
+
+  function onLimitChange(raw: string) {
+    if (!/^\d{0,3}$/.test(raw)) return
+    setLimitDraft(raw)
+    const n = Number(raw)
+    if (!raw || n < 1 || n > MAX_RECENT_LIMIT) return
+    setRecentFilesLimit(n)
+    trimRecentFiles(n)
+  }
 
   function current(p: ProviderSettings): ProviderSettings {
     return drafts[p.id] ?? p
@@ -278,6 +298,27 @@ export function ConfigDialog({ open, onOpenChange }: ConfigDialogProps) {
           <Button size="sm" disabled={Boolean(newDraft)} onClick={startCreate}>
             添加服务
           </Button>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+          <p className="text-sm font-medium">最近打开文件</p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">记录数量</span>
+            <Input
+              type="number"
+              min={1}
+              max={MAX_RECENT_LIMIT}
+              className="w-24"
+              value={limitDraft}
+              onChange={(e) => onLimitChange(e.target.value)}
+            />
+            <span className="text-xs text-muted-foreground">
+              条（1–{MAX_RECENT_LIMIT}，超出自动钳制）
+            </span>
+            <Button size="sm" variant="ghost" onClick={clearRecentFiles}>
+              清空记录
+            </Button>
+          </div>
         </div>
 
         <div className="flex justify-end">

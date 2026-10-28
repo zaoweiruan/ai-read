@@ -185,29 +185,65 @@ pnpm install          按 pnpm-lock.yaml 安装依赖
 | 生成图片 / 画图 | `agnes-image-gen` | 加载技能后执行 |
 | 生成视频 / 动画 | `agnes-video-gen` | 加载技能后执行 |
 | 发布 / release / bump version / 推送 | `release-skills` | 按技能的版本与 changelog 流程 |
-| 记忆 / 回忆 / 上下文长期记忆 | `caura-memory` | 按 6.3 节 Caura 规范读写 |
+| 记忆 / 回忆 / 上下文长期记忆 / Caura / memclaw / recall / keystones / 经验 / 教训 / 历史决策 | `caura-memory` | 加载技能后按 §6.3 规范读写；**先读 §6.3.1 三条实测硬约束再调用** |
 | UI 截图 / 界面测试 | （暂无 —— 本项目 UI 测试待建） | 先记录到 plans，不得虚构技能 |
 
-### 6.3 跨会话记忆（Caura）使用规范
+### 6.3 跨会话记忆（Caura / memclaw MCP）使用规范
 
-#### 6.3.1 读取时机（`caura_recall`）
+Caura 是项目级跨会话记忆系统（服务端 `type: "remote"`，url `https://caura.ai/mcp`，配置在全局 `~/.config/opencode/opencode.jsonc`），用于在多个 AI 会话之间沉淀、复用关键经验，避免每次会话从零开始。AI 在涉及本项目的工作时**必须**遵循以下规则。
 
-复杂任务开始前**必须**先 `caura_recall`，检索关键词建议：`ai-read 需求`、`项目初始化`、`技术栈边界`、`stray token 教训`、`AGENTS.md`。
+#### 6.3.1 实测硬约束（每条均来自本次联调实测，违反即调用失败）
 
-#### 6.3.2 写入时机（`caura_write`）
+1. **每次调用必须显式传 `agent_id: "opencode"`**：网关拒绝 schema 默认值 `mcp-agent`，缺省即报 `MISSING_AGENT_ID`；agent 级读写全按 `agent_id` 过滤，不传就读不到、写不上。
+2. **MCP 工具永远不会出现在输入框 `/` 斜杠命令里**：Caura 不暴露任何 MCP prompt（`prompts/list` 返回 -32601），13 个工具只能靠自然语言调用，或走 Code Mode 路径 `tools.memclaw.caura_xxx(...)`。
+3. **tenant 跨项目共享**：当前 tenant 同时存放 validproxy 等其他项目的记忆，检索词必须带 ai-read 语境，命中结果需人工筛掉非本项目结论。
 
-确认下来的决策、可复用命令、踩坑教训、用户偏好应当**主动持久化**，例如：技术栈选型决策、浏览器直连 BYO-key 约束、"写文件后必须复查杂散 token" 纪律、构建命令。
+#### 6.3.2 读取时机（`caura_recall`）
 
-#### 6.3.3 安全红线（禁止写入内容）
+在开始以下任务之前，**必须**先 `caura_recall` 检索既有记忆，避免重复探索或违背既有决策：
 
-- **严禁**将 apiKey / token / 密码 / 证书原文写入任何记忆或文档；泄露时以 `<REDACTED>` 占位。
-- localStorage 中的 `ai-read:settings`（含用户真实 apiKey）永远只留在浏览器本地。
+- 启动复杂任务（架构调整、重构、新功能、跨模块改动）前
+- 涉及 EPUB/PDF 解析、AI Provider 直连、Zustand 持久化、mind-elixir 渲染的实现前
+- 遇到构建（pnpm/tsc/ESLint）、类型报错、解析异常等问题时
+- 需要确认历史架构决策、构建命令、排障结论或用户偏好时
 
-#### 6.3.4 工作流闭环
+要点：建议关键词 `ai-read 需求`、`项目初始化`、`技术栈边界`、`stray token 教训`、`AGENTS.md`、`EPUB 解析`、`BYO-key`、`zustand`、`mind-elixir`；`caura_recall` 是语义+关键词混合检索，纯按元数据浏览用 `caura_list`，按 UUID 读取用 `caura_manage(op: "read")`。
+
+#### 6.3.3 写入时机（`caura_write`）
+
+在以下场景完成后，**应当** `caura_write` 持久化可复用结论：
+
+- 已确认的架构决策（如 Provider 双实现选型、浏览器直连 BYO-key 约束）
+- 已验证可复用的构建命令 / 诊断命令（pnpm 脚本、类型检查修复路径）
+- 已定位的排障结论（根因、修复要点、失败教训）
+- 用户表达的偏好与约束（代码风格、提交规范、命名约定、"写文件后复查杂散 token" 纪律）
+- 已总结的踩坑反模式（如直连 JSON-RPC 时把多个 JSON 文档拼进一个 body 会 -32700）
+
+要点：单条写给 `content`、批量写给 `items`（≤100），二选一；自定义字段一律放 `metadata`（未知 key 会被拒绝而非忽略）；默认 `visibility: "scope_team"`，`weight` 取 0-1；返回 `embedding_pending: true` 表示已存但尚未向量化（~15-20s），可按关键词与 `caura_list` 找到，**不要重复写**；确需立刻可语义召回时用 `write_mode: "strong"`。
+
+#### 6.3.4 工作流闭环（keystones → 检索 → 执行 → 沉淀 → 复盘）
 
 ```text
-检索(caura_recall) -> 执行(编码/命令) -> 复查(读回文件验证) -> 沉淀(caura_write)
+[任务开始]
+   │
+   ▼
+caura_keystones({agent_id:"opencode"})  # 返回 rules 字段（按 weight 排序），覆盖冲突指令；count:0 属正常
+   │
+   ▼
+caura_recall → 执行/排障 → 复查（读回文件 + 杂散 token 扫描）→ 形成结论
+   │
+   ▼
+caura_write → caura_evolve(related_ids: 召回命中的 memory UUID,
+                          outcome_type: success | failure | partial)
 ```
+
+维护动作：记忆过期或被推翻时用 `caura_manage(op: "transition", status: "outdated" | "archived")`，优先于软删除 `delete`。
+
+#### 6.3.5 安全红线（禁止写入内容）
+
+- **严禁**将 apiKey / token / 密码 / 证书原文写入任何记忆或文档；泄露时以 `<REDACTED>` 占位。
+- memclaw key 只以环境变量 `$env:memclaw_apikey` 形式存在于启动终端的 PowerShell profile 中——OpenCode 必须从该终端启动，否则请求 401；key 禁止写入仓库、文档或记忆。
+- localStorage 中的 `ai-read:settings`（含用户真实 apiKey）永远只留在浏览器本地。
 
 ### 6.4 本项目特有红线（ai-read）
 
