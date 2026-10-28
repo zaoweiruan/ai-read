@@ -144,6 +144,16 @@ const baseBookStore = create<BookState>()(
     {
       name: 'ai-read:book',
       storage: createJSONStorage(() => safeStorage),
+      merge: (persisted, current) => {
+        // bookData（PDF/EPUB 二进制）不参与持久化，页面刷新后必然丢失；
+        // 若此时仍恢复 book/chapters，界面会出现「目录看似已加载、正文却无内容」的矛盾状态，
+        // 因此直接丢弃陈旧数据回到统一的未加载界面，并把陈旧 blob 从 localStorage 清除
+        if (persisted && typeof persisted === 'object' && (persisted as BookState).book) {
+          safeStorage.removeItem('ai-read:book')
+          return current
+        }
+        return (persisted ?? current) as BookState
+      },
       partialize: (state) => ({
         book: state.book,
         chapters: state.chapters,

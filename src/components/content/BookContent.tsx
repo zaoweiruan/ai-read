@@ -1062,9 +1062,11 @@ export function BookContent() {
             <p className="text-sm opacity-70">
               {pdfStream.error
                 ? `页面内容加载失败：${pdfStream.error}`
-                : pdfStream.loading
-                  ? '正在加载页面内容…'
-                  : '该页没有可提取的文本（可能是图片或空白页）。'}
+                : !bookData
+                  ? '书籍文件未驻留（刷新后不保留），请在顶部重新上传以继续阅读与处理。'
+                  : pdfStream.loading
+                    ? '正在加载页面内容…'
+                    : '该页没有可提取的文本（可能是图片或空白页）。'}
             </p>
           )
         ) : state.status === 'idle' ? (
