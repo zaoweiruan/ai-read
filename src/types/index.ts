@@ -1,6 +1,6 @@
 export type BookFormat = 'epub' | 'pdf' | 'markdown'
 
-export type ProcessingMode = 'summary' | 'chapter-mindmap' | 'book-mindmap'
+export type ProcessingMode = 'summary' | 'translate' | 'chapter-mindmap' | 'book-mindmap'
 
 export interface Chapter {
   id: string
@@ -75,6 +75,7 @@ export interface SummaryResult {
   bookSummary: string
   guide?: string
   cards?: ChapterSummaryCard[]
+  endpoint?: string
 }
 
 export interface MindMapNode {

@@ -10,6 +10,8 @@ import {
   mindMapV1,
 } from '@/prompts';
 import { getChapterContent } from '@/services/epub';
+import { translateGoogle, translateMyMemory } from '@/services/translate';
+import { translateLara } from '@/services/lara';
 import { getPageText, getPdfDocument } from '@/services/pdf';
 import { useBookStore } from '@/stores/book-store'
 import { useReaderStore } from '@/stores/reader-store';
@@ -30,6 +32,7 @@ import { cn } from '@/lib/utils';
 
 const MODES: { value: ProcessingMode; label: string }[] = [
   { value: 'summary', label: '当前章节总结' },
+  { value: 'translate', label: '自动翻译' },
   { value: 'chapter-mindmap', label: '当前章节思维导图' },
   { value: 'book-mindmap', label: '整书思维导图' },
 ];
@@ -133,7 +136,9 @@ function withTimeout(ai: AIProvider): AIProvider {
     name: ai.name,
     async chat(messages: ChatMessage[], options: ChatOptions = {}) {
       const ac = new AbortController();
+      let timedOut = false;
       const timer = setTimeout(() => {
+        timedOut = true;
         ac.abort(
           new DOMException(
             'The operation was aborted due to timeout',
@@ -151,7 +156,10 @@ function withTimeout(ai: AIProvider): AIProvider {
       try {
         return await ai.chat(messages, { ...options, signal: ac.signal });
       } catch (e) {
-        if (e instanceof DOMException && e.name === 'TimeoutError') {
+        // 超时由本包装器触发时，下游可能已把中止原因归类成 AbortError（如
+        // fetchWithRetry 的 sleep 抛「已取消」）——以 timedOut 为准还原超时语义，
+        // 避免把 60s 超时误报为用户「已取消」。
+        if (timedOut) {
           throw new Error('AI 请求超时（60 秒）：服务响应过慢，请稍后重试。', { cause: e });
         }
         throw e;
@@ -195,6 +203,7 @@ export default function ProcessingPanel() {
   const abortRef = useRef<AbortController | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState(false);
+const [endpointLog, setEndpointLog] = useState<string[]>([]);
 
   useEffect(() => {
     const onChange = () => {
@@ -405,6 +414,143 @@ export default function ProcessingPanel() {
           guide: guideText,
           cards,
         });
+      } else if (effectiveMode === 'translate') {
+        setEndpointLog([]);
+        const chapter = selected[0];
+        setProgress({
+          completed: 0,
+          currentStep: `自动翻译：${chapter.title}`,
+          status: 'running',
+        });
+        const content = await buildContent(chapter.id);
+        let translated = '';
+        let usedEndpoint = '';
+        if (!content.trim()) {
+          translated = '（该章节未检测到正文文本，无可翻译内容）';
+        } else {
+          const tSettings = useSettingsStore.getState().translation;
+          if (tSettings.mode === 'ai') usedEndpoint = 'AI 提供商';
+          if (
+            tSettings.mode === 'mymemory' ||
+            tSettings.mode === 'lara' ||
+            tSettings.mode === 'google'
+          ) {
+            const opts = {
+              sourceLang: tSettings.sourceLang,
+              targetLang: tSettings.targetLang,
+              signal: controller.signal,
+            };
+            const creds = {
+              accessKeyId: tSettings.laraAccessKeyId,
+              accessKeySecret: tSettings.laraAccessKeySecret,
+            };
+            const runFree = async (m: string) => {
+              if (m === 'mymemory') return translateMyMemory(content, opts);
+              if (m === 'lara') return translateLara(content, opts, creds);
+              return translateGoogle(content, opts);
+            };
+            // 回退链：当前选中端点 → 其他免费端点（mymemory → lara → google）→ AI 提供商
+            const allFree = ['mymemory', 'lara', 'google'] as const;
+            const chain = [
+              tSettings.mode,
+              ...allFree.filter((m) => m !== tSettings.mode),
+            ];
+            const labelOf = (m: string) =>
+              m === 'mymemory'
+                ? 'MyMemory'
+                : m === 'lara'
+                  ? 'Lara'
+                  : 'Google';
+            let freeErr: unknown = null;
+            let ok = false;
+            for (let i = 0; i < chain.length; i++) {
+              const m = chain[i];
+              setProgress({
+                completed: 0,
+                currentStep: `正在请求：${labelOf(m)} 端点${i > 0 ? '（回落）' : ''}`,
+                status: 'running',
+              });
+              setEndpointLog((prev) => [...prev, `请求 ${labelOf(m)}…`]);
+              try {
+                translated = await runFree(m);
+                usedEndpoint = labelOf(m);
+                ok = true;
+                setEndpointLog((prev) => [...prev, `✓ ${labelOf(m)} 成功`]);
+                break;
+              } catch (e) {
+                freeErr = e;
+                const msg = e instanceof Error ? e.message : String(e);
+                setEndpointLog((prev) => [...prev, `✗ ${labelOf(m)} 失败：${msg}`]);
+                if (i < chain.length - 1) {
+                  setProgress({
+                    completed: 0,
+                    currentStep: `${labelOf(m)} 失败，回落 ${labelOf(chain[i + 1])}`,
+                    status: 'running',
+                  });
+                }
+              }
+            }
+            if (!ok && freeErr) {
+              const provider = getActiveProvider();
+              if (provider?.model && provider?.apiKey) {
+                try {
+                  setProgress({
+                    completed: 0,
+                    currentStep: '免费端点均失败，回落 AI 提供商',
+                    status: 'running',
+                  });
+                  setEndpointLog((prev) => [...prev, '免费端点均失败，回落 AI 提供商…']);
+                  translated = (
+                    await ai.chat(
+                      [
+                        {
+                          role: 'system' as const,
+                          content:
+                            '你是专业译者。将用户提供的文字翻译为简体中文，保持原意、段落与列表结构，只输出译文，不要添加解释或前言。',
+                        },
+                        { role: 'user' as const, content },
+                      ],
+                      { temperature: 0.2, signal: controller.signal },
+                    )
+                  ).trim();
+                  usedEndpoint = 'AI 提供商';
+                  setEndpointLog((prev) => [...prev, '✓ AI 提供商 成功']);
+                } catch (e2) {
+                  const m1 = freeErr instanceof Error ? freeErr.message : String(freeErr);
+                  const m2 = e2 instanceof Error ? e2.message : String(e2);
+                  throw new Error(`${m1}\nAI 提供商回退亦失败：${m2}`, { cause: e2 });
+                }
+              } else {
+                throw freeErr;
+              }
+            }
+          } else {
+            translated = (
+              await ai.chat(
+                [
+                  {
+                    role: 'system' as const,
+                    content:
+                      '你是专业译者。将用户提供的文字翻译为简体中文，保持原意、段落与列表结构，只输出译文，不要添加解释或前言。',
+                  },
+                  { role: 'user' as const, content },
+                ],
+                { temperature: 0.2, signal: controller.signal },
+              )
+            ).trim();
+          }
+        }
+        setProgress({
+          completed: 1,
+          currentStep: `翻译完成（${usedEndpoint || 'AI 提供商'}）`,
+          status: 'done',
+        });
+        setSummary({
+          chapterSummaries: { [chapter.id]: translated },
+          chapterRelations: '',
+          bookSummary: translated,
+          endpoint: usedEndpoint || 'AI 提供商',
+        });
       } else if (effectiveMode === 'chapter-mindmap') {
         const roots: MindMapNode[] = [];
         for (let i = 0; i < selected.length; i += 1) {
@@ -611,6 +757,15 @@ export default function ProcessingPanel() {
             <span className="truncate text-xs text-muted-foreground">
               {progress.completed}/{progress.total} {progress.currentStep}
             </span>
+            {endpointLog.length > 0 ? (
+              <ul className="max-h-24 overflow-auto rounded border border-border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
+                {endpointLog.map((line, i) => (
+                  <li key={i} className="whitespace-pre-wrap">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">

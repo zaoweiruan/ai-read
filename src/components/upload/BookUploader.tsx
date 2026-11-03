@@ -54,6 +54,8 @@ function formatTime(ts: number): string {
 
 export function BookUploader() {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [recentVisible, setRecentVisible] = useState(false)
+
   const book = useBookStore((s) => s.book)
   const setBook = useBookStore((s) => s.setBook)
   const setBookData = useBookStore((s) => s.setBookData)
@@ -69,7 +71,6 @@ export function BookUploader() {
   const fsaaSupported = isFsaaSupported()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [recentVisible, setRecentVisible] = useState(false)
 
   async function handleFile(file: File, handle?: FileSystemFileHandle) {
     const format = detectFormat(file.name)
@@ -197,8 +198,18 @@ export function BookUploader() {
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-border p-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">上传电子书</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        {!book ? <h2 className="text-lg font-semibold">上传电子书</h2> : null}
+        <Button disabled={busy} onClick={() => void pickFileWithFsaa()}>
+          {busy ? '解析中…' : '选择文件'}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() => setRecentVisible((v) => !v)}
+        >
+          {recentVisible ? '收起最近文件' : '最近打开文件'}
+        </Button>
         <p className="text-sm text-muted-foreground">
           支持 EPUB、PDF 与 Markdown 格式，解析在本地完成后按需发送给 AI 服务。
         </p>
@@ -212,24 +223,7 @@ export function BookUploader() {
         onChange={onInputChange}
       />
 
-      <div className="flex items-center gap-3">
-        <Button disabled={busy} onClick={() => void pickFileWithFsaa()}>
-          {busy ? '解析中…' : '选择文件'}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={() => setRecentVisible((v) => !v)}
-        >
-          {recentVisible ? '收起最近文件' : '最近打开文件'}
-        </Button>
-        {book?.title ? (
-          <span className="text-sm">
-            {book.title}
-            {book.author ? ` · ${book.author}` : ''}
-          </span>
-        ) : null}
-      </div>
+
 
       {recentVisible ? (
         <div className="flex flex-col gap-2 rounded-md border border-border p-3">

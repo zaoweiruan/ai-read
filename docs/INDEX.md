@@ -6,10 +6,16 @@
 ## 需求与规格（spec）
 
 - [ai-read 需求](spec/ai-read%20需求.md) — 唯一需求源，功能与技术栈的最终依据。
+- [cors 优化](spec/cors优化.md) — 浏览器直连大模型 API 的 CORS 失败诊断与方案调研（其「Node.js 后端代理」建议与本项目「无代理 / BYO-key 浏览器直连」红线冲突，仅作参考与判据留存，不作为实施方案）。
 
 ## 计划与进度（plans）
 
 - [项目计划与进度跟踪](plans/project-plans-tracker.md) — 唯一允许记录进度勾选的文件。
+- [2026-11-02 设计 Google 免费翻译端点接入 v1.0](plans/2026-11-02-Design-Google-Translate-Endpoint-v1.0.md)
+- [2026-11-02 设计 处理结果保存导出 v1.0](plans/2026-11-02-Design-Result-Export-v1.0.md)
+- [2026-11-02 设计 免费翻译端点可用性测试 v1.0](plans/2026-11-02-Design-Free-Translate-Verify-v1.0.md)
+- [2026-11-02 设计 Lara 翻译 API 配置接入 v1.0](plans/2026-11-02-Design-Lara-Translate-Config-v1.0.md)
+- [2026-11-02 设计 翻译请求端点与回落实时展示 v1.0](plans/2026-11-02-Design-Translate-Progress-Display-v1.0.md) — ProcessingPanel 翻译进度实时展示当前请求端点与回退情况。 — 翻译方式新增「Lara 翻译 API（需 Access Key）」（位于 Google 之前）；新增 Key/Secret 配置与签名认证服务 `src/services/lara.ts`；回退链扩展为 mymemory → lara → google → AI。 — ConfigDialog 翻译组新增「测试端点」按钮，调用 `verifyFreeTranslate` 判断 MyMemory/Google 端点可用性（8s 超时、配额警告识别）。 — ResultView 新增保存 TXT/MD/PDF；TXT/MD 下载当前 tab 结果，PDF 走浏览器打印另存为；总结/导图 Markdown 构建与下载封装于 `src/lib/export.ts`。 — 方案 A（已获批）：翻译方式新增「Google 免费端点」（`translate.googleapis.com/translate_a/single`，`client=gtx`，无需 Key），复用 450 字分段与 4 次指数退避；失败单级回退 AI 提供商并合并两层错误；「代理配置」以说明文字呈现（浏览器 `fetch` 无法指定代理，请由系统/浏览器/SwitchyOmega 放行域名 10808），不引入任何代理代码，不破无代理红线。
 - [2026-10-20 计划 优化需求提示词体系 P0–P4 v1.0](plans/2026-10-20-Plan-Optimization-Prompt-RAG-v1.0.md) — 源自 `spec/ai-read 优化需求.md`：5 大功能（全书概览/章节摘要/思维导图/引用问答/术语解释）+ RAG·分块·两层摘要·JSON 校验·SSE 流式·缓存·Prompt 版本化的无后端化实施方案。
 
 ## 缺陷修复（bugfix）
@@ -18,6 +24,9 @@
 - [2026-10-21 修复 处理面板 tab 消失 v1.0](bugfix/2026-10-21-Bugfix-ProcessingPanel-Tab-Disappear-v1.0.md) — 根因：Vite 监听 `docs/**` 变更触发整页 reload 清空内存态 + AI 请求无超时导致 tab 永久禁用 + 完成后自动滚动推离 tab；修复含 watcher ignore、60s 看门狗、移除自动滚动。
 - [2026-10-23 修复 注释图标渲染过大 v1.0](bugfix/2026-10-23-Bugfix-Reader-Annotation-Icon-v1.0.md) — 根因：EPUB 小图注释图标「注」限于 min(自然宽,1.5em) 仍大于正文字符，且图片容器 `my-3` 居中打断 `text-indent:2em` 段落流；修复为 cap 1em + max-height 1.3em + contain 垂直基线内嵌，去图题/圆角，容器改 `my-0.5 pl-[2em]`。
 - [2026-10-27 修复 刷新后目录有内容、正文与处理均无内容 v1.0](bugfix/2026-10-27-Bugfix-Book-Data-Resident-v1.0.md) — 根因：`bookData`（PDF/EPUB 二进制）不参与 book-store 持久化，刷新后恢复 book/chapters 但 bookData=null，出现「目录看似已加载却读不了」的矛盾；修复为 persist `merge` 丢弃陈旧数据回到统一未加载态，PDF 空态补 `!bookData` 防御文案。
+- [2026-10-29 修复 配置保存后刷新还原 v1.0](bugfix/2026-10-29-Bugfix-Settings-Persist-Revert-v1.0.md) — 根因：`settings-store` 是唯一裸 `persist`（仅 `{name}`）的 store，缺 `storage` 守卫 / `partialize` / `merge` 归一化，非浏览器或受限上下文里 `window.localStorage` 访问失败导致配置无法落盘、刷新回默认；修复对齐既定约定（`safeStorage` + `createJSONStorage` + `partialize` + `merge` 归一化）。**注：该修复必要但不充分，现象未消除，真正根因见下一条。**
+- [2026-10-30 修复 AI Provider 429 限流无重试 v1.0](bugfix/2026-10-30-Bugfix-AI-Provider-Retry-429-v1.0.md) — 根因：provider `chat`/`chatStream` 直接 `fetch`，429/5xx/网络异常立即 throw 无重试；修复：新增 `fetchWithRetry`（4 次、1s/2s/4s 指数退避、遵守 AbortSignal）覆盖 OpenAI 兼容与 Google 两实现。
+- [2026-10-30 修复 翻译失败误报「已取消」v1.0](bugfix/2026-10-30-Bugfix-Translate-Abort-Misreport-v1.0.md) — 根因：MyMemory 日配额 429 → AI 回退 60s 超时，下游 `sleep` 把中止改写成 AbortError「已取消」，`withTimeout` 认不出超时原样上抛；修复：`withTimeout` 以 `timedOut` 标志还原超时语义、回退 catch 合并两层错误原因、translate 识别 MyMemory 200 响应中的配额警告文本。
 
 ## 设计 / 分析 / 参考（按需登记）
 
@@ -44,6 +53,9 @@
 - [2026-10-27 设计 最近打开文件 v1.1](plans/2026-10-27-Design-Recent-Files-v1.1.md) — v1.1 增量：用户反馈「打开」应直接打开文件而非弹文件选择框；新增会话级 File 缓存（LRU 50、不持久化），会话内命中缓存直接重开，刷新/重启后回退选择器。
 - [2026-10-28 设计 最近打开文件 v1.2](plans/2026-10-28-Design-Recent-Files-v1.2.md) — v1.2 增量：用户反馈点击文件名直接打开；提取 openRecord 辅助函数，条目主行改为可点击按钮（与「打开」同逻辑），跨会话仍回退选择器。
 - [2026-10-28 设计 最近打开文件 v1.3](plans/2026-10-28-Design-Recent-Files-v1.3.md) — v1.3 增量：File System Access API 直开（Chromium 无对话框、非 Chromium 回退）+ 文件名完整显示（扩展名前全字符 + tooltip）。
+- [2026-10-29 设计 自动翻译模式 v1.0](plans/2026-10-29-Design-Translation-Mode-v1.0.md) — 处理模式新增「自动翻译」：选中即取当前章节正文（`buildContent`）整体翻译成简体中文（浏览器直连 BYO-key、60s 看门狗），译文经 `SummaryResult` 通道在 ResultView「翻译结果」展示，无正文时不请求 AI。
+- [2026-10-30 设计 翻译端点可配置 v1.0](plans/2026-10-30-Design-Translation-Endpoint-v1.0.md) — 翻译端点独立配置：MyMemory 免费端点（无需 Key、浏览器直连）作为默认，支持 AI 提供商切换；源/目标语言可配置（默认 en → zh-CN）。
+- [2026-10-30 设计 漫画模式 v1.0](plans/2026-10-30-Design-Comic-Mode-v1.0.md) — 阅读区新增「漫画模式」开关：漫画大图去掉 70vh 上限按视口宽度铺满、隐藏纯装饰文本块（`____`/破折号线），正文与 icon 小图不受影响；开关随阅读器偏好持久化。
 
 ## 环境快照（build-env）
 

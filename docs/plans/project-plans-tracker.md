@@ -285,3 +285,83 @@
 - [x] `BookUploader.tsx`：`pickFileWithFsaa()`（showOpenFilePicker）；`openRecord()` 优先缓存 → IndexedDB handle → requestPermission → getFile；失败回退文件选择器；「选择文件」按钮走 FSAA
 - [x] 文件名完整显示：新增 `stripExtension()`，主行显示扩展名前完整文件名，按钮 `title={fileName}` tooltip
 - [ ] 待验收：pnpm typecheck / lint / build；Chromium E2E（刷新后点击条目无对话框）；非 Chromium 回退
+
+## 阶段 26：修复 配置保存后刷新还原 — 真根因（2026-10-30，bugfix `bugfix/2026-10-30-Bugfix-ConfigDialog-SaveGate-v1.0.md`）
+
+- [x] 复现与定位（只读分析，未改码）：`ConfigDialog.saveExisting` 内层 `verified(p.id, p)` 用 **store 旧值** `p` 比对指纹，而 `isDirty()` 的定义正是「草稿指纹 ≠ 旧值指纹」→ dirty 状态下内层校验恒 false → 静默 return，`updateProvider` 从未被调用（按钮因外层的草稿指纹判定而保持可点）
+- [x] 第二处门禁：`saveNew` 要求 `verified('new', newDraft)`，`verifyProvider` 在 CORS 拦截（`TypeError: Failed to fetch`）时返回 `ok:false`，导致不支持浏览器直连的端点永久无法保存
+- [x] 排除项：`settings-store` 持久化管道（safeStorage/partialize/merge）已正确；全仓无 `localStorage.clear()` / store reset；storage key 无撞车；有 globalThis 单例
+- [x] 修复：`saveExisting` 去掉内层二次校验（仅 `if (!d) return`）+ 保存后 `clearVerify`；`saveNew` 去 `verified` 前置；按钮门禁改 `canSave = opts.dirty`，验证降级为建议
+- [x] 文案：对话框顶部说明改为「验证结果仅供参考，未通过也可直接保存」；未验证提示改为「未验证也可直接保存；建议先『验证服务』确认连通与 CORS」；验证失败时补充「配置仍可保存，但实际请求会被浏览器拦截」
+- [x] 文档：新增 `bugfix/2026-10-30-Bugfix-ConfigDialog-SaveGate-v1.0.md` 并登记 `docs/INDEX.md`；`bugfix/2026-10-29-...` 顶部加「后续更正」指向真根因；INDEX spec 节补登记 `spec/cors优化.md`
+- [x] 验收：`pnpm typecheck` 通过；`pnpm lint` 0 error / 3 条既有 exhaustive-deps warning（BookContent L595/L623/L746）；`pnpm build` 通过（✓ built in 5.65s）；写后必查 ConfigDialog 代码位无杂散 token
+- [ ] 待人工验收：改 Key / 模型 / 地址 → 点保存 → 按钮立即变「未修改」→ 刷新后配置保留；新增服务在验证失败（CORS）时仍可保存
+
+## 阶段 27：修复 AI Provider 429 限流无重试（2026-10-30，bugfix `bugfix/2026-10-30-Bugfix-AI-Provider-Retry-429-v1.0.md`）
+
+- [x] 现象：自动翻译等模式请求 AI 时偶发 `AI 请求失败: 429 ... max connections reached`，端点限流直接抛出到 UI，无恢复
+- [x] 根因：`provider.ts` 的 `chat`/`chatStream` 直接 `fetch`，`!res.ok` 立即 throw，无重试
+- [x] 修复：新增 `sleep` + `fetchWithRetry`（4 次、1s/2s/4s 指数退避、遵守 AbortSignal），覆盖 OpenAI 兼容与 Google 两实现的 `chat`/`chatStream`（共 4 处），去掉重复的 `if (!res.ok) throw`；新增全局串行队列 `aiQueue`，同一时刻仅一个 AI 请求在途，避免触发端点并发连接上限
+- [x] 验收：`pnpm typecheck` 通过；`pnpm lint` 0 error / 3 条既有 warning；`pnpm build` ✓ 4.55s；写后重读 provider.ts L89-307 无杂散 token
+- [ ] 待人工验收：触发一次限流场景（或弱网），确认自动重试后成功或最终错误信息仍可读
+
+## 阶段 28：漫画模式（2026-10-30，设计 `plans/2026-10-30-Design-Comic-Mode-v1.0.md`）
+
+- [x] 勘察：ReaderFigure 渲染点（BookContent L110/1127）、paragraphs useMemo（L771-774）、工具栏双页按钮（L986-994）、reader-store 结构、epub.getChapterBlocks RawBlock 链路
+- [x] reader-store：新增 `comicMode`（默认 false）+ `setComicMode`，随 `ai-read:reader` 持久化
+- [x] ReaderFigure：新增可选 prop `comic`，开启后非 icon 图去掉 `max-h-[70vh]`，className 改为 `w-full max-w-none rounded-md`；icon 判定与 alt caption 不变
+- [x] 装饰线过滤：组件层 paragraphs useMemo 在 comicMode 下剔除 `isDecorativeLine`（trim 后仅由 `_ - — – ─ ━ ＿` 与空白构成且至少含一个下划线类字符），不污染解析服务与 AI 链路
+- [x] 工具栏：双页按钮后插入「漫画模式」按钮（size sm、variant 高亮态 secondary、title 说明）
+- [x] 文档：新增设计文档并登记 `docs/INDEX.md`
+- [x] 验收：`pnpm typecheck` 0 error；`pnpm lint` 0 error / 3 条既有 warning；`pnpm build` 通过；写后必查 reader-store / BookContent 代码位无杂散 token
+- [x] Agent E2E（2026-10-30，dev 5173 + 漫画瘦包 Temp/opencode/epub-montage-slim.epub，「灌溉 Watering」章）：开「漫画模式」后 `.reader-para` 4→2、纯下划线装饰行 2→0、localStorage `ai-read:reader` state.comicMode=true；残留 2 段为「未知」「灌溉 Watering」正常文本，无漏网装饰行 → 过滤链路完整生效
+- [ ] 待人工验收：硬刷新（Ctrl+Shift+R）后重开漫画 EPUB，确认「____ 装饰行」不再显示；若刷新后仍见残留再扩 isDecorativeLine 判定
+
+## 阶段 29：修复 翻译失败误报「已取消」（2026-10-30，bugfix `bugfix/2026-10-30-Bugfix-Translate-Abort-Misreport-v1.0.md`）
+
+- [x] 现象：翻译不可用，界面仅显示「已取消」，用户疑默认端点配置有误
+- [x] 根因链：MyMemory 日配额 429（实测 `YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY`，约 1h25m 恢复）→ AI 回退 `withTimeout` 60s 超时 → `fetchWithRetry` 把 TimeoutError 当普通错误重试 → `sleep` 检测 aborted 抛 `DOMException('已取消','AbortError')` → `withTimeout` 只认 TimeoutError 认不出 → 外层 `controller.signal.aborted` 为 false → 界面显示「已取消」，真实根因不可见
+- [x] 修复 1：`withTimeout` 加 `timedOut` 标志，超时触发时 catch 还原为「AI 请求超时（60 秒）」错误（附 cause），不再误报「已取消」
+- [x] 修复 2：translate 分支 MyMemory 回退 catch 内层合并两层错误 `翻译失败：${m1}\nAI 提供商回退亦失败：${m2}`（附 cause），根因不被回退错误掩盖
+- [x] 修复 3：`translate.ts` 识别 MyMemory 200 响应中的 `MYMEMORY WARNING` 文本，配额类抛「MyMemory 免费额度已用尽，请稍后重试，或在配置中切换为『使用 AI 提供商』」，不再把警告当译文显示
+- [x] 文档：新增 `bugfix/2026-10-30-Bugfix-Translate-Abort-Misreport-v1.0.md` 并登记 `docs/INDEX.md`
+- [x] 验收：`pnpm typecheck` 0 error；`pnpm lint` 0 error / 3 条既有 exhaustive-deps warning（修复 lint 新报 `preserve-caught-error`：合并 throw 补 `{ cause: e2 }`）；`pnpm build` ✓ 5.71s；写后必查三处修复代码位无杂散 token
+- [ ] 待人工验收：MyMemory 配额恢复后执行一次翻译成功；配额耗尽时错误显示「MyMemory 免费额度已用尽」或合并两层原因，而非「已取消」
+
+## 阶段 30：新增 Google 免费翻译端点（2026-11-02，design `plans/2026-11-02-Design-Google-Translate-Endpoint-v1.0.md`）
+
+- [x] 设计文档经用户批准（方案 A：Google 端点 + 代理说明文字，不写代理代码）
+- [x] 类型：`translationSettingsSchema.mode` 扩为 `'ai' | 'mymemory' | 'google'`；settings-store merge 三值合法化
+- [x] 服务：`translate.ts` 新增 `translateGoogle`（复用 `chunkText`/`sleep`，gtx 响应解析、4 次指数退避、429/5xx/网络异常处理、AbortSignal）
+- [x] 处理：`ProcessingPanel.tsx` 免费端点分支扩展为 `mymemory || google`，按 mode 选择函数；三级回退链：当前免费端点 → 另一个免费端点 → AI 提供商，合并各层原因
+- [x] 配置：`ConfigDialog.tsx` 方式下拉新增「Google 免费端点（无需 Key）」，端点组追加代理说明文字（浏览器 `fetch` 无法指定代理，由系统/浏览器/SwitchyOmega 放行域名）
+- [x] 文档：新增设计文档并登记 `docs/INDEX.md`
+- [x] 验收：`pnpm typecheck` 0 error；`pnpm lint` 0 error / 3 条既有 warning；`pnpm build` ✓ 6.19s；写后必查 translate.ts / ProcessingPanel / ConfigDialog 代码位无杂散 token
+- [ ] 待人工验收：网络可达环境下 Google 端点翻译成功；Google 限流/超时回退 AI 提供商时错误显示合并两层原因
+
+## 阶段 31：处理结果保存导出（2026-11-02，design `plans/2026-11-02-Design-Result-Export-v1.0.md`）
+
+- [x] 设计文档
+- [x] 服务：新增 `src/lib/export.ts`（summary/mindmap 的 Markdown/Text 构建 + downloadText + buildFileName）
+- [x] UI：`ResultView.tsx` 头部新增保存 TXT/MD/PDF 按钮，双结果时额外「保存全部 MD」
+- [x] PDF：`.print-only` 容器 + `@media print` 样式，`window.print()` 另存为 PDF
+- [x] 验收：`pnpm typecheck` 0 error；`pnpm lint` 0 error/3 既有 warning；`pnpm build` ✓；写后必查 ResultView/export 代码位无杂散 token
+- [ ] 待人工验收：保存 TXT/MD 下载正确内容；保存 PDF 打开打印对话框可另存为 PDF
+
+## 阶段 32：免费翻译端点可用性测试（2026-11-02，design `plans/2026-11-02-Design-Free-Translate-Verify-v1.0.md`）
+
+- [x] 设计文档
+- [x] 服务：`translate.ts` 新增 `verifyFreeTranslate`（8s 超时、MyMemory 配额警告识别、Google gtx 解析）
+- [x] UI：`ConfigDialog.tsx` 翻译组新增「测试端点」按钮与结果显示（mode=ai 时禁用）
+- [x] 验收：`pnpm typecheck` 0 error；`pnpm lint` 0 error/3 既有 warning；`pnpm build` ✓
+- [ ] 待人工验收：点击测试端点显示可用/不可用/配额受限/超时
+
+## 阶段 33：Lara 翻译 API 配置接入（2026-11-02，design `plans/2026-11-02-Design-Lara-Translate-Config-v1.0.md`）
+
+- [x] 设计文档
+- [x] 类型：mode 枚举新增 `lara`；新增 `laraAccessKeyId` / `laraAccessKeySecret`
+- [x] 服务：新增 `src/services/lara.ts`（签名认证 + /v2/translate + verifyLara）
+- [x] UI：ConfigDialog 下拉新增 Lara（位于 Google 前）；mode=lara 显示 Key/Secret；测试端点支持 Lara
+- [x] 处理：回退链扩展为 mymemory → lara → google → AI
+- [x] 验收：`pnpm typecheck` 0 error；`pnpm lint` 0 error/3 既有 warning；`pnpm build` ✓
+- [ ] 待人工验收：配置 Lara Key 后翻译成功；测试端点显示可用/不可用

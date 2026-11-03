@@ -107,7 +107,22 @@ function chapterAtPage(
   return matched
 }
 
-function ReaderFigure({ src, alt }: { src: string; alt: string }) {
+function isDecorativeLine(text: string): boolean {
+  const trimmed = text.trim()
+  if (trimmed.length === 0) return false
+  if (!/^[_\u2013\u2014\u2500\u2501\uff3f\s-]+$/.test(trimmed)) return false
+  return trimmed.includes('_') || trimmed.includes('\uff3f')
+}
+
+function ReaderFigure({
+  src,
+  alt,
+  comic,
+}: {
+  src: string
+  alt: string
+  comic?: boolean
+}) {
   const [iconNatural, setIconNatural] = useState<number | null>(null)
   const isIcon = iconNatural !== null && iconNatural <= 200
   const showCaption = !isIcon && alt.trim().length > 0
@@ -141,7 +156,13 @@ function ReaderFigure({ src, alt }: { src: string; alt: string }) {
               }
             : undefined
         }
-        className={isIcon ? undefined : 'max-h-[70vh] w-auto max-w-full rounded-md'}
+        className={
+          isIcon
+            ? undefined
+            : comic
+              ? 'w-full max-w-none rounded-md'
+              : 'max-h-[70vh] w-auto max-w-full rounded-md'
+        }
       />
       {showCaption ? (
         <figcaption className="mt-1 text-xs opacity-70">{alt}</figcaption>
@@ -171,6 +192,8 @@ export function BookContent() {
   const setTheme = useReaderStore((s) => s.setTheme)
   const twoPage = useReaderStore((s) => s.twoPage)
   const setTwoPage = useReaderStore((s) => s.setTwoPage)
+  const comicMode = useReaderStore((s) => s.comicMode)
+  const setComicMode = useReaderStore((s) => s.setComicMode)
   const pageMode = useReaderStore((s) => s.pageMode)
   const setPageMode = useReaderStore((s) => s.setPageMode)
   const resetTypography = useReaderStore((s) => s.resetTypography)
@@ -770,8 +793,11 @@ export function BookContent() {
 
   const paragraphs = useMemo(() => {
     if (state.status !== 'ready') return []
-    return state.blocks
-  }, [state])
+    if (!comicMode) return state.blocks
+    return state.blocks.filter(
+      (block) => typeof block !== 'string' || !isDecorativeLine(block),
+    )
+  }, [state, comicMode])
   const pageBlockCount = useMemo(
     () =>
       paragraphs.filter(
@@ -992,6 +1018,15 @@ export function BookContent() {
         >
           双页
         </Button>
+        <Button
+          size="sm"
+          variant={comicMode ? 'secondary' : 'outline'}
+          onClick={() => setComicMode(!comicMode)}
+          title="漫画模式：大图铺满展示，隐藏装饰线"
+          aria-label="漫画模式"
+        >
+          漫画模式
+        </Button>
         <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
         <Button
           size="sm"
@@ -1124,7 +1159,12 @@ export function BookContent() {
                     ))}
                 </div>
               ) : (
-                <ReaderFigure key={`img-${i}`} src={block.src} alt={block.alt} />
+                <ReaderFigure
+                  key={`img-${i}`}
+                  src={block.src}
+                  alt={block.alt}
+                  comic={comicMode}
+                />
               ),
             )}
           </div>

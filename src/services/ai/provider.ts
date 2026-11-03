@@ -86,6 +86,80 @@ export async function chatStreamWithFallback(
   return ai.chat(messages, options)
 }
 
+async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('已取消', 'AbortError'));
+    };
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timer);
+        reject(new DOMException('已取消', 'AbortError'));
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
+// 全局串行队列：同一时刻只允许一个 AI 请求在途，避免触发端点的并发连接上限（max connections）。
+let aiQueue: Promise<unknown> = Promise.resolve();
+function enqueue<T>(task: () => Promise<T>): Promise<T> {
+  const run = aiQueue.then(
+    () => task(),
+    () => task(),
+  );
+  aiQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+// 对 429（限流）与 5xx（服务端瞬时错误）做指数退避重试；网络层异常同样重试。
+// 重试次数 3 次（共 4 次请求），间隔 1s/2s/4s，遵守 AbortSignal。
+// 所有请求经全局串行队列，保证同一时刻仅一个在途请求。
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  signal?: AbortSignal,
+): Promise<Response> {
+  return enqueue(async () => {
+    const maxAttempts = 4;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (signal?.aborted) throw new DOMException('已取消', 'AbortError');
+      let res: Response;
+      try {
+        res = await fetch(url, { ...init, signal });
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') throw e;
+        lastError = e;
+        if (attempt < maxAttempts - 1) {
+          await sleep(1000 * 2 ** attempt, signal);
+          continue;
+        }
+        throw e;
+      }
+      if (res.ok) return res;
+      const retryable = res.status === 429 || res.status >= 500;
+      if (retryable && attempt < maxAttempts - 1) {
+        await res.text().catch(() => {});
+        await sleep(1000 * 2 ** attempt, signal);
+        continue;
+      }
+      const body = await res.text().catch(() => '');
+      throw new Error(`AI 请求失败: ${res.status} ${body}`);
+    }
+    throw (lastError as Error) ?? new Error('AI 请求失败');
+  });
+}
+
 export class OpenAICompatibleProvider implements AIProvider {
   readonly name: string
   private settings: ProviderSettings
@@ -95,23 +169,23 @@ export class OpenAICompatibleProvider implements AIProvider {
   }
 
   async chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
-    const res = await fetch(`${effectiveBaseUrl(this.settings)}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.settings.apiKey}`,
+    const res = await fetchWithRetry(
+      `${effectiveBaseUrl(this.settings)}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.settings.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.settings.model,
+          messages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.maxTokens,
+        }),
       },
-      body: JSON.stringify({
-        model: this.settings.model,
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-      }),
-      signal: options.signal,
-    })
-    if (!res.ok) {
-      throw new Error(`AI 请求失败: ${res.status} ${await res.text()}`)
-    }
+      options.signal,
+    )
     const data = await res.json()
     return data.choices?.[0]?.message?.content ?? ''
   }
@@ -120,24 +194,24 @@ export class OpenAICompatibleProvider implements AIProvider {
     messages: ChatMessage[],
     options: ChatStreamOptions,
   ): Promise<string> {
-    const res = await fetch(`${effectiveBaseUrl(this.settings)}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.settings.apiKey}`,
+    const res = await fetchWithRetry(
+      `${effectiveBaseUrl(this.settings)}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.settings.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.settings.model,
+          messages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.maxTokens,
+          stream: true,
+        }),
       },
-      body: JSON.stringify({
-        model: this.settings.model,
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-        stream: true,
-      }),
-      signal: options.signal,
-    })
-    if (!res.ok) {
-      throw new Error(`AI 请求失败: ${res.status} ${await res.text()}`)
-    }
+      options.signal,
+    )
     let full = ''
     await readSse(res, (data) => {
       try {
@@ -184,7 +258,7 @@ export class GoogleProvider implements AIProvider {
 
   async chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
     const { system, contents } = this.splitMessages(messages)
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `${effectiveBaseUrl(this.settings)}/models/${this.settings.model}:generateContent?key=${this.settings.apiKey}`,
       {
         method: 'POST',
@@ -197,12 +271,9 @@ export class GoogleProvider implements AIProvider {
             maxOutputTokens: options.maxTokens,
           },
         }),
-        signal: options.signal,
       },
+      options.signal,
     )
-    if (!res.ok) {
-      throw new Error(`AI 请求失败: ${res.status} ${await res.text()}`)
-    }
     const data = await res.json()
     return (
       data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? ''
@@ -214,7 +285,7 @@ export class GoogleProvider implements AIProvider {
     options: ChatStreamOptions,
   ): Promise<string> {
     const { system, contents } = this.splitMessages(messages)
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `${effectiveBaseUrl(this.settings)}/models/${this.settings.model}:streamGenerateContent?alt=sse&key=${this.settings.apiKey}`,
       {
         method: 'POST',
@@ -227,12 +298,9 @@ export class GoogleProvider implements AIProvider {
             maxOutputTokens: options.maxTokens,
           },
         }),
-        signal: options.signal,
       },
+      options.signal,
     )
-    if (!res.ok) {
-      throw new Error(`AI 请求失败: ${res.status} ${await res.text()}`)
-    }
     let full = ''
     await readSse(res, (data) => {
       try {

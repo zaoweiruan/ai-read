@@ -17,6 +17,7 @@ interface ReaderState extends TypographyState {
   outlineVisible: boolean
   processingVisible: boolean
   twoPage: boolean
+  comicMode: boolean
   pageMode: ReaderPageMode
   setFontSize: (size: number) => void
   setLineHeight: (v: number) => void
@@ -26,6 +27,7 @@ interface ReaderState extends TypographyState {
   setOutlineVisible: (v: boolean) => void
   setProcessingVisible: (v: boolean) => void
   setTwoPage: (v: boolean) => void
+  setComicMode: (v: boolean) => void
   setPageMode: (v: ReaderPageMode) => void
   resetTypography: () => void
 }
@@ -48,6 +50,7 @@ const baseReaderStore = create<ReaderState>()(
       outlineVisible: true,
       processingVisible: true,
       twoPage: false,
+      comicMode: false,
       pageMode: 'continuous',
       setFontSize: (size) => set({ fontSize: clampFontSize(size) }),
       setLineHeight: (lineHeight) => set({ lineHeight }),
@@ -57,6 +60,7 @@ const baseReaderStore = create<ReaderState>()(
       setOutlineVisible: (outlineVisible) => set({ outlineVisible }),
       setProcessingVisible: (processingVisible) => set({ processingVisible }),
       setTwoPage: (twoPage) => set({ twoPage }),
+      setComicMode: (comicMode) => set({ comicMode }),
       setPageMode: (pageMode) => set({ pageMode }),
       resetTypography: () => set({ ...DEFAULT_TYPOGRAPHY }),
     }),

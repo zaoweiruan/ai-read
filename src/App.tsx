@@ -22,7 +22,7 @@ export default function App() {
   const setProcessingVisible = useReaderStore((s) => s.setProcessingVisible)
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <header className="border-b px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold">AI Read</h1>
@@ -51,30 +51,32 @@ export default function App() {
         </nav>
       </header>
 
-      <main className="flex-1 p-4 max-w-7xl w-full mx-auto">
+      <main className="flex-1 py-4 px-0 w-full flex flex-col gap-4 min-h-0">
         {tab === 'prompts' ? (
           <PromptManager />
         ) : (
-          <div className="flex flex-col gap-4">
-            <BookUploader />
+          <div className="flex flex-1 flex-col gap-4 min-h-0">
+            <div className="shrink-0">
+              <BookUploader />
+            </div>
             <div
               className={cn(
-                'grid gap-4',
+                'grid grid-rows-1 flex-1 min-h-0 gap-4',
                 outlineVisible
                   ? processingVisible
-                    ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_360px]'
-                    : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_40px]'
+                    ? 'lg:grid-cols-[minmax(0,0.5fr)_minmax(0,1.4fr)_360px]'
+                    : 'lg:grid-cols-[minmax(0,0.5fr)_minmax(0,1.4fr)_40px]'
                   : processingVisible
                     ? 'lg:grid-cols-[40px_minmax(0,1fr)_360px]'
                     : 'lg:grid-cols-[40px_minmax(0,1fr)_40px]',
               )}
             >
               {outlineVisible ? (
-                <div className="h-[560px] lg:h-[640px]">
+                <div className="h-full">
                   <ChapterList />
                 </div>
               ) : (
-                <div className="hidden h-[560px] items-center justify-center lg:flex lg:h-[640px]">
+                <div className="hidden h-full items-center justify-center lg:flex">
                   <button
                     type="button"
                     onClick={() => setOutlineVisible(true)}
@@ -90,15 +92,15 @@ export default function App() {
                   </button>
                 </div>
               )}
-              <div className="h-[560px] lg:h-[640px]">
+              <div className="h-full">
                 <BookContent />
               </div>
               {processingVisible ? (
-                <div className="h-[560px] lg:h-[640px]">
+                <div className="h-full">
                   <ProcessingPanel />
                 </div>
               ) : (
-                <div className="hidden h-[560px] items-center justify-center lg:flex lg:h-[640px]">
+                <div className="hidden h-full items-center justify-center lg:flex">
                   <button
                     type="button"
                     onClick={() => setProcessingVisible(true)}

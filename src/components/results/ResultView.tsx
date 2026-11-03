@@ -4,6 +4,13 @@ import type { MindMapNode, MindMapResult, SummaryResult } from '@/types';
 import { useBookStore } from '@/stores/book-store';
 import { renderGuideMarkdown } from '@/lib/markdown';
 import { Badge } from '@/components/ui/badge';
+import {
+  buildFileName,
+  downloadText,
+  mindMapToMarkdown,
+  summaryToMarkdown,
+  summaryToText,
+} from '@/lib/export';
 
 type ResultPayload = {
   summary?: SummaryResult | null;
@@ -39,6 +46,26 @@ export default function ResultView({
   const resolvedSummary = summary ?? storeSummary ?? readResult().summary ?? null;
   const resolvedMindMap = mindMap ?? storeMindMap ?? readResult().mindMap ?? null;
 
+const saveActive = (format: 'txt' | 'md') => {
+  if (tab === 'summary' && resolvedSummary) {
+    const content =
+      format === 'txt' ? summaryToText(resolvedSummary) : summaryToMarkdown(resolvedSummary);
+    const mime = format === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8';
+    downloadText(buildFileName(book?.title, 'summary', format === 'txt' ? 'txt' : 'md'), content, mime);
+  } else if (tab === 'mindmap' && resolvedMindMap) {
+    const content = mindMapToMarkdown(resolvedMindMap, book?.title ?? '思维导图');
+    const mime = format === 'txt' ? 'text/plain;charset=utf-8' : 'text/markdown;charset=utf-8';
+    downloadText(buildFileName(book?.title, 'mindmap', format === 'txt' ? 'txt' : 'md'), content, mime);
+  }
+};
+
+const saveAllMarkdown = () => {
+  const parts: string[] = [`# ${book?.title ?? 'ai-read'}`, ''];
+  if (resolvedSummary) parts.push(summaryToMarkdown(resolvedSummary, '文字总结'), '');
+  if (resolvedMindMap) parts.push(mindMapToMarkdown(resolvedMindMap, '思维导图'), '');
+  downloadText(buildFileName(book?.title, 'all', 'md'), parts.join('\n'), 'text/markdown;charset=utf-8');
+};
+
   useEffect(() => {
     if (activeMode === 'summary' && resolvedSummary) setTab('summary');
     else if (activeMode !== 'summary' && resolvedMindMap) setTab('mindmap');
@@ -52,7 +79,6 @@ export default function ResultView({
   if (!resolvedSummary && !resolvedMindMap) {
     return (
       <section id="app-result" className="space-y-2">
-        <h2 className="text-lg font-semibold">结果</h2>
         <p className="text-sm text-muted-foreground">处理完成后将在此展示总结与思维导图。</p>
       </section>
     );
@@ -61,7 +87,6 @@ export default function ResultView({
   return (
     <section id="app-result" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">结果</h2>
         <div className="flex gap-1">
           {resolvedSummary ? (
             <button
@@ -73,8 +98,8 @@ export default function ResultView({
               }
               onClick={() => setTab('summary')}
             >
-              文字总结
-            </button>
+               {activeMode === 'translate' ? '翻译结果' : '文字总结'}
+             </button>
           ) : null}
           {resolvedMindMap ? (
             <button
@@ -87,6 +112,42 @@ export default function ResultView({
               onClick={() => setTab('mindmap')}
             >
               思维导图
+            </button>
+          ) : null}
+        </div>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+            onClick={() => saveActive('txt')}
+            title="保存当前结果为 TXT"
+          >
+            保存 TXT
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+            onClick={() => saveActive('md')}
+            title="保存当前结果为 Markdown"
+          >
+            保存 MD
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+            onClick={() => window.print()}
+            title="打印/另存为 PDF"
+          >
+            保存 PDF
+          </button>
+          {resolvedSummary && resolvedMindMap ? (
+            <button
+              type="button"
+              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+              onClick={saveAllMarkdown}
+              title="保存全部结果为 Markdown"
+            >
+              保存全部 MD
             </button>
           ) : null}
         </div>
@@ -106,6 +167,24 @@ export default function ResultView({
           <p className="text-sm text-muted-foreground">暂无导图结果，完成处理后在此展示。</p>
         )
       ) : null}
+      <div className="print-only" aria-hidden="true">
+        {resolvedSummary ? (
+          <section>
+            <h2>文字总结</h2>
+            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+              {summaryToMarkdown(resolvedSummary)}
+            </pre>
+          </section>
+        ) : null}
+        {resolvedMindMap ? (
+          <section>
+            <h2>思维导图</h2>
+            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+              {mindMapToMarkdown(resolvedMindMap, book?.title ?? '思维导图')}
+            </pre>
+          </section>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -116,6 +195,7 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
   const titleOf = (id: string) => chapters.find((c) => c.id === id)?.title ?? id;
   const entries = Object.entries(result.chapterSummaries);
   const cards = result.cards ?? [];
+  const isTranslate = useBookStore((s) => s.activeMode) === 'translate';
   const jumpTo = (id: string) => useBookStore.getState().setActiveChapterId(id);
 
   return (
@@ -123,13 +203,18 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
       <div className="rounded-lg border border-border p-4">
         <div className="mb-1 flex items-center gap-2">
           <h3 className="font-semibold">
-            {result.guide
-              ? Object.keys(result.chapterSummaries).length === 1
-                ? '本章导读'
-                : '全书导读'
-              : '全书总结'}
+            {isTranslate
+              ? '翻译结果'
+              : result.guide
+                ? Object.keys(result.chapterSummaries).length === 1
+                  ? '本章导读'
+                  : '全书导读'
+                : '全书总结'}
           </h3>
-          <Badge>{result.guide ? 'guide' : 'book'}</Badge>
+          <Badge>{isTranslate ? 'translate' : result.guide ? 'guide' : 'book'}</Badge>
+          {isTranslate && result.endpoint ? (
+            <Badge className="bg-muted text-muted-foreground">端点：{result.endpoint}</Badge>
+          ) : null}
         </div>
         {result.guide ? (
           <div className="space-y-1.5 text-sm">
@@ -148,6 +233,7 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
           <p className="whitespace-pre-wrap text-sm">{result.chapterRelations}</p>
         </div>
       ) : null}
+      {!isTranslate ? (
       <div className="rounded-lg border border-border">
         <div className="border-b border-border px-4 py-2">
           <h3 className="font-semibold">
@@ -242,6 +328,7 @@ function SummaryPanel({ result }: { result: SummaryResult }) {
           </ul>
         )}
       </div>
+      ) : null}
     </div>
   );
 }

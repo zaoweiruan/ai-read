@@ -72,8 +72,21 @@ export function ChapterList() {
             onClick={() => setOutlineVisible(false)}
             title="折叠章节列"
             aria-label="折叠章节列"
+            className="h-7 w-7 p-0"
           >
-            «
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 3 5 7l4 4" />
+            </svg>
           </Button>
         </div>
       </div>
